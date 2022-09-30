@@ -1,0 +1,63 @@
+<!doctype html>
+
+<html lang="es">
+<html>
+	<head>
+		<meta charset='utf-8'>
+		<title>Threejs App</title>
+		<style>
+			body {
+				background-color: #000;
+				margin: 0px;
+				overflow: hidden;
+			}
+			#info{
+				position: absolute;
+				bottom: 0px;
+				left: 50px;
+				width: 30%;
+				text-align: left;
+				z-index: 1;
+			}
+		</style>
+	</head>
+	<body>
+		<!-- Contenedor del app -->
+		<div id="container"></div>
+
+		<div id="info">
+			<h2>Threejs Example</h2>
+		</div>
+
+		<!-- Scripts de biblioteca -->
+		<script type="importmap">
+			{ "imports" : {"three" : "./lib/three.module.js"} }
+		</script>
+
+		<!-- <script src="lib/three.min.js"></script>
+		<script src="lib/Coordinates.js"></script>
+		<script src="lib/OrbitControls.js"></script>
+		<script src="lib/stats.min.js"></script>
+		<script src="lib/dat.gui.min.js"></script>
+		<script src= "fonts/gentilis_bold.typeface.js"> </script>
+		<script src= "fonts/gentilis_regular.typeface.js"> </script>
+		<script src= "fonts/optimer_bold.typeface.js"> </script>
+		<script src= "fonts/optimer_regular.typeface.js"> </script>
+		<script src= "fonts/helvetiker_bold.typeface.js"> </script>
+		<script src= "fonts/helvetiker_regular.typeface.js"> </script>
+		<script src= "fonts/droid_sans_regular.typeface.js"> </script>
+		<script src= "fonts/droid_sans_bold.typeface.js"> </script>
+		<script src= "fonts/droid_serif_regular.typeface.js"> </script>
+		<script src= "fonts/droid_serif_bold.typeface.js"> </script> -->
+
+
+		<!-- Mi aplicacion -->
+
+		<!-- <script src="threejs/3js_paraguas.js"></script> -->
+		<!-- <script src="threejs/3js_paraguas_burberrys.js"></script> -->
+		<!-- <script src="threejs/3js_paraguas_burberrys_shadow.js"></script> -->
+
+		<script type="module" src="js/EscenaMultivista.js"></script>
+
+	</body>
+</html>

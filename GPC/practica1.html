@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<!--
+    Pagina de carga de una aplicacin basica en WebGL
+-->
+
+<html lang="es">
+    <head>
+        <meta charset="utf-8">
+        <title> GPC práctica 1 </title>
+        <style>
+            body{ background-color: white;
+                  margin: 0px;
+                  overflow: hidden;
+                }
+            canvas { background-color: white;}    
+        </style>
+    </head>
+    <body onload="main()" class="centered-wrapper">
+        <div align="center">
+        <h1>GPC práctica 1: unir puntos</h1>
+        <canvas id="canvas" width="400" height="300"></canvas>
+        <!-- scripts de biblioteca -->
+        <script src="lib/webgl-utils.js"></script>
+        <script src="lib/webgl-debug.js"></script>
+        <script src="lib/cuon-utils.js"></script>
+        <script src="lib/cuon-matrix.js"></script>
+
+        <!-- mi script -->
+        <script src="js/dibujarPuntos.js"></script>
+        <!-- <script src="sol.js"></script> -->
+        </div>
+    </body>
+</html>
