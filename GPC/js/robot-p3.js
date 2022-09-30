@@ -1,26 +1,25 @@
 /**
-  robot.js - Practica 2 - GPC
+  robot-p3.js - Practica 3 - GPC
   Brazo articulado realizado con Three.js_r140
 
   Mario Andreu Villar
   @author maanvil@inf.upv.es
 */
 
-// import * as THREE from "../lib/three.module.js"
-// import {GLTFLoader} from "../lib/GLTFLoader.module.js"
+import * as THREE from "../lib/three.module.js"
+import {OrbitControls} from "../lib/OrbitControls.module.js"
 
+// Variables estandar
 let renderer, scene, camera
 
-let brazo, antebrazo, nervios, mano
-let angulo = 0
+// Otras globales
+let cameraControls
+let cenital
+let base, brazo, antebrazo, nervios, mano
+// let angulo = 0
+const L = 75
 
-/* 
-Flag global para iluminacion (util para el debug de normales)
-    false <=> robot como en el boletin de practica, con material 
-           basico en wireframes rojos y sin luces
-    true  <=> robot con material (ilu Lambert) azul y luces en la escena  */
-const LUCES = false
-
+// Acciones
 init()
 loadScene()
 render()
@@ -28,37 +27,74 @@ render()
 function init()
 {
     // Instanciar el motor
-    renderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth,window.innerHeight)
+    renderer = new THREE.WebGLRenderer()
+    renderer.setSize(window.innerWidth, window.innerHeight)
+    renderer.setClearColor(0xFFFFFF)
+    renderer.autoClear = false
     document.getElementById('container').appendChild(renderer.domElement)
 
     // Instanciar la escena
     scene = new THREE.Scene()
-    scene.background = new THREE.Color(1,1,1)
 
-    // Instanciar la camara
-    camera = new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,1,2000)
-    camera.position.set(100,220,150)
-    camera.lookAt(0,1,0)
+    // Instanciar la camara perspectiva
+    const ar = window.innerWidth / window.innerHeight
+    camera = new THREE.PerspectiveCamera(75, ar, 1, 2000)
+    camera.position.set(150,250,-150)
+    camera.lookAt(0,120,0)
 
     // Controles raton
-    cameraControls = new THREE.OrbitControls( camera, renderer.domElement );
-    cameraControls.target.set( 0, 120, 0 );
+    cameraControls = new OrbitControls(camera, renderer.domElement)
+    cameraControls.target.set(0,120,0)
+    
+    // Limitar el zoom
+    cameraControls.maxDistance = 300
+    cameraControls.minDistance = 75
+
+    // Mini-vista camara cenital
+    setMiniatura()
+
+    // Captura de eventos
+    window.addEventListener('resize', updateAspectRatio);
+}
+
+function setMiniatura()
+{
+    cenital = new THREE.OrthographicCamera(-L,L,L,-L,-10,300)
+
+    cenital.position.set(0,250,0)
+    cenital.lookAt(0,0,0)
+    cenital.up = new THREE.Vector3(0,0,-1)
+
+    // const helper = new THREE.CameraHelper(cenital)
+    // scene.add(helper)
+}
+
+function updateAspectRatio()
+{
+    // Cambia las dimensiones del canvas
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    // Nuevo relacion aspecto de la camara
+    const ar = window.innerWidth / window.innerHeight;
+
+    // Camara perspectiva
+    camera.aspect = ar;
+    camera.updateProjectionMatrix();
 }
 
 function loadScene()
 {
     // Material a utilizar
-    const material = (!LUCES) ? new THREE.MeshBasicMaterial({color:'red', wireframe:true})
-        : new THREE.MeshLambertMaterial( 
-            { color: 0x1d78be, shading: THREE.SmoothShading, wireframe:false } );
+    const material = new THREE.MeshNormalMaterial(
+        {wireframe: false, flatShading: true}
+    )
 
     // Suelo de 1000*1000 en el plano XZ
-    const suelo = new THREE.Mesh( new THREE.PlaneGeometry(1000,1000,10,10), material)
+    const suelo = new THREE.Mesh(new THREE.PlaneGeometry(1000,1000,10,10), material)
     suelo.rotation.x = -Math.PI/2
 
     // Base del robot
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(50,50,15,50), material)
+    base = new THREE.Mesh(new THREE.CylinderGeometry(50,50,15,50), material)
 
     // Brazo del robot: formado por eje, esparrago, rotula y antebrazo
     brazo = new THREE.Object3D()
@@ -66,7 +102,7 @@ function loadScene()
     const eje = new THREE.Mesh(new THREE.CylinderGeometry(20,20,18,50), material)
     eje.rotation.x = -Math.PI/2
     
-    const esparrago = new THREE.Mesh(new THREE.BoxGeometry(18,120,12), material)
+    const esparrago = new THREE.Mesh(new THREE.BoxGeometry(12,120,18), material)
     esparrago.position.y += 120/2
     esparrago.rotation.y = Math.PI/2
 
@@ -179,7 +215,7 @@ function loadScene()
         12,13,14, 14,15,12, // Left
         16,17,18, 18,19,16, // Top
         20,21,22, 22,23,20  // Bottom
-    ];
+    ]
 
     mallaDedo.setIndex(indices)
     mallaDedo.setAttribute('position', new THREE.Float32BufferAttribute(coordenadas,3))
@@ -205,23 +241,6 @@ function loadScene()
     pinzaIz.position.y -= 20/2
     pinzaIz.position.z += (separacionPinzas - 4/2)
 
-
-    //--------------------------------------------
-    // Luces para comprobar normales
-    if (LUCES)
-    {
-        const ambientLight = new THREE.AmbientLight(0x222222);
-        scene.add( ambientLight ); 
-        const luz1 = new THREE.PointLight(0xFFFFFF, 0.5);
-        luz1.position.set(0, 160, 0);
-        scene.add( luz1 );
-        const luz2 = new THREE.PointLight(0xFFFFFF, 0.2);
-        luz2.position.set(0, 250, -50);
-        scene.add( luz2 );
-        const luz3 = new THREE.PointLight(0xFFFFFF, 0.2);
-        luz3.position.set(0, 250, 50);
-        scene.add( luz3 );
-    }
     //--------------------------------------------
 
     // Grafo de escena
@@ -260,16 +279,34 @@ function loadScene()
 function update()
 {
     // Cambios para actualizar la camara segun movimiento del raton
-    cameraControls.update();
+    cameraControls.update()
 
     // Giro de la escena
-    angulo -= 0.001
-    scene.rotation.y = angulo
+    // angulo -= 0.001
+    // base.rotation.y = angulo
 }
 
 function render()
 {
     requestAnimationFrame(render)
     update()
+
+    renderer.clear()
+
+    /* La miniatura cenital esta superpuesta a la vista 
+    general en el angulo superior izquierdo, cuadrada, 
+    de 1/4 de la dimensión menor de la vista general */
+
+    let ladoMiniatura
+    if (window.innerWidth < window.innerHeight)
+        ladoMiniatura = window.innerWidth / 4
+    else 
+        ladoMiniatura = window.innerHeight / 4
+    
+    // El S.R. del viewport es left-bottom con X right y Y up
+    renderer.setViewport(0,window.innerHeight-ladoMiniatura+1,ladoMiniatura,ladoMiniatura)
+    renderer.render(scene,cenital)
+
+    renderer.setViewport(0,0,window.innerWidth,window.innerHeight)
     renderer.render(scene,camera)
 }
