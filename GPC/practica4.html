@@ -1,0 +1,42 @@
+<!doctype html>
+
+<html lang="es">
+<html>
+	<head>
+		<meta charset='utf-8'>
+		<title>GPC Práctica 4 - Mario Andreu</title>
+		<style>
+			body {
+				background-color: #000;
+				margin: 0px;
+				overflow: hidden;
+			}
+			#info{
+				position: absolute;
+				bottom: 0px;
+				left: 50px;
+				width: 30%;
+				text-align: left;
+				z-index: 1;
+			}
+		</style>
+	</head>
+	<body>
+		<!-- Contenedor del app -->
+		<div id="container"></div>
+
+		<div id="info">
+			<h2>Práctica 4<br/>Mario Andreu</h2>
+		</div>
+
+		<!-- Scripts de biblioteca -->
+		<script type="importmap">
+			{ "imports" : {"three" : "./lib/three.module.js"} }
+		</script>
+        <script src="lib/threex.keyboardstate.js"></script>
+		
+		<!-- Mi aplicacion -->
+		<script type="module" src="js/robot-p4.js"></script>
+
+	</body>
+</html>
