@@ -1,0 +1,120 @@
+<!doctype html>
+
+<html lang="es">
+<html>
+	<head>
+		<meta charset='utf-8'>
+		<title>Game - Mario Andreu</title>
+		<style>
+			body {
+				background-color: white;
+				margin: 0px;
+				overflow: hidden;
+			}
+			#info{
+				position: absolute;
+				bottom: 0px;
+				left: 50px;
+				width: 30%;
+				text-align: left;
+				z-index: 1;
+			}
+			#infoGame{
+				padding: 5px;
+				font-family: 'Helvetica', 'Arial', sans-serif;
+				color: #444444;
+				font-size: 12pt;
+				width: 100%;
+				display: table;
+			}
+			#healthBar::-webkit-progress-value {accent-color: green !important;}
+			#healthBar::-moz-progress-bar {accent-color: green !important;}
+			#healthBar {accent-color: green;}
+
+			#menu,#pantallaFin{
+				width:50%;
+				height:35%;
+				position: absolute;
+				bottom: 40%;
+				left: 25%;
+				text-align:center;
+				font-size:25px;
+				font-family: 'Helvetica', 'Arial', sans-serif;
+			}
+
+			#finText{
+				background:#e9b650e5;
+				font-size:20px;
+				padding:10px;
+				margin-bottom: 10px;
+			}
+
+			#start,#howToPlay,#records,#credits,#restart,#returnToMenu{
+				margin: 0 auto;
+				border: solid rgb(54, 42, 2);
+				height: 23%;
+				max-width:500px;
+				min-width:250px;
+				max-height:100px;
+				min-height:75px;
+				width: 99%;
+				background-size: 1px 300%;
+				-webkit-transition:0.5s;
+				transition:0.5s;
+				color:rgb(0, 0, 0);
+				cursor:pointer;
+				border-radius: 80% 10%;
+				background:#e9b650e5;
+			}
+
+			#start:hover,#howToPlay:hover,#credits:hover,#records:hover,#restart:hover,#returnToMenu:hover{
+				background:#7a3700;
+				color:white;
+				-webkit-transform:rotate(-1deg);
+				transform:rotate(-2deg);
+			}
+		</style>
+	</head>
+	<body>
+		<!-- Contenedor del app -->
+		<div id = "infoGame">
+			<div style = "display: table-row">
+				<div id = "time" style = "display: table-cell; width: 180px"></div>
+				<div style = "display: table-cell"><progress id="progressBar"></progress></div>
+				<div id = "vida" style = "display: table-cell; width: 75px"></div>
+				<div style = "display: table-cell"><progress id="healthBar"></progress></div>
+				<div id = "stats" style = "display: table-cell"></div>
+			</div>
+		</div>
+
+		<div id = "pantallaFin">
+			<div id="finText"></div>
+			<div id="restart"><p>Volver a jugar</p></div>
+			<div id="returnToMenu"><p>Menú principal</p></div>
+		</div>
+
+		<div id="container"></div>
+
+		<div id="menu">
+			<div id="start"><p>Empezar partida</p></div>
+			<div id="howToPlay"><p>Cómo jugar</p></div>
+			<div id="records"><p>Récords</p></div>
+			<div id="credits"><p>Créditos</p></div>
+		</div>
+		
+
+		<div id="info">
+			<h2>Game<br/>Mario Andreu</h2>
+		</div>
+
+		<!-- Scripts de biblioteca -->
+		<script type="importmap">
+			{ "imports" : {"three" : "./lib/three.module.js"} }
+		</script>
+        <!-- <script src="lib/threex.keyboardstate.js"></script> -->
+				
+		<!-- Mi aplicacion -->
+		<script type="module" src="js/EscenaAuxiliar.js"></script>
+
+	</body>
+</html>
