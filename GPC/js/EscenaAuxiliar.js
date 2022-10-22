@@ -130,6 +130,9 @@ function init()
     renderer.autoClear = false
     renderer.setClearColor(0xFFFFFF)
 
+    //Lower resolution
+    renderer.setPixelRatio( window.devicePixelRatio * 0.5 );
+
     // Reloj
     reloj.start();
 
@@ -285,7 +288,7 @@ function loadVisualWorld()
     direccional.shadow.camera.top = MAX_SPACE/1.5;
     direccional.shadow.camera.bottom = -MAX_SPACE/1.5;
     scene.add(direccional)
-    scene.add(new THREE.CameraHelper(direccional.shadow.camera))
+    auxPhysical.add(new THREE.CameraHelper(direccional.shadow.camera))
     
     focal = new THREE.SpotLight(0xFFFFFF, 0.5)
     focal.position.set(-MAX_SPACE/2, MAX_SPACE/2 - OFFSET_Y, MAX_SPACE/2)
@@ -296,7 +299,7 @@ function loadVisualWorld()
     focal.shadow.camera.far = MAX_SPACE*2
     focal.shadow.camera.fov = 80
     scene.add(focal)
-    scene.add(new THREE.CameraHelper(focal.shadow.camera))
+    auxPhysical.add(new THREE.CameraHelper(focal.shadow.camera))
 
     // Materiales 
     const texsuelo = new THREE.TextureLoader().load('images/ground.jpg');
@@ -342,7 +345,6 @@ function loadVisualWorld()
 
 
     // GRAFO DE ESCENA
-    scene.add( new THREE.AxesHelper(50) );
     scene.add(visual)
     visual.add(suelo)
     visual.add(habitacion)
@@ -353,6 +355,7 @@ function loadVisualWorld()
     paisaje3D.add(arboles3D)
     paisaje3D.add(farolas3D)
     paisaje3D.add(piedras3D)
+    auxPhysical.add( new THREE.AxesHelper(50) );
     scene.add(auxPhysical)
     auxPhysical.visible = false
 }
@@ -384,6 +387,16 @@ function allModelsLoaded()
         .easing(TWEEN.Easing.Sinusoidal.InOut)
         .start()
     })
+
+    // Luz puntual
+    let light = new THREE.PointLight( 'white', 1);
+    // light.castShadow = true // queda mejor si esta no las genera (y mucho mejor rendimiento)
+
+    light.position.set(0,sizeVacaY*0.4,sizeVacaZ*1,1);
+    vaca3D.add( light );
+
+    const pointLightHelper = new THREE.PointLightHelper( light, 0.25, 'red' );
+    auxPhysical.add( pointLightHelper );
 }
 
 function putObjectsInQuad(x,z)
@@ -394,7 +407,8 @@ function putObjectsInQuad(x,z)
     else                putDulce(x,z)
 
     // Flor aleatoria
-    putFlor(x,z)
+    rdm = Math.random()
+    if (rdm < 0.5) putFlor(x,z)
 }
 
 function putDulce(x,z)
@@ -499,7 +513,7 @@ function putFarola(x,z)
 
     // Luz puntual
     let light = new THREE.PointLight( 0xffee80, 1);
-    // light.castShadow = true
+    light.castShadow = true
 
     farolas.push([farola,farolaBody,farolaMesh,light])
 
@@ -669,6 +683,8 @@ function update()
 
     if (moviendose && !dobleClick) 
     {
+console.log("Number of Triangles :", renderer.info.render.triangles);
+
         // calculate towards camera direction
         var angleYCameraDirection = Math.atan2(
             (camera.position.x - boxBody.position.x), 
