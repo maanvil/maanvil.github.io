@@ -21,6 +21,7 @@
 				font-family: 'Helvetica', 'Arial', sans-serif;
 				color: white;
 				font-size: 10pt;
+				user-select: none;
 			}
 			#infoGame{
 				padding: 5px;
@@ -50,6 +51,7 @@
 				font-size:20px;
 				padding:10px;
 				margin-bottom: 10px;
+				user-select: none;
 			}
 
 			#start,#howToPlay,#records,#credits,#restart,#returnToMenu{
@@ -68,6 +70,7 @@
 				cursor:pointer;
 				border-radius: 80% 10%;
 				background:#e9b650e5;
+				user-select: none;
 			}
 
 			#start:hover,#howToPlay:hover,#credits:hover,#records:hover,#restart:hover,#returnToMenu:hover{
@@ -81,7 +84,7 @@
 	<body>
 		<!-- Contenedor del app -->
 		<div id = "infoGame">
-			<div style = "display: table-row">
+				<div style = "display: table-row; user-select: none;">
 				<div id = "time" style = "display: table-cell; width: 180px"></div>
 				<div id = "bar1" style = "display: table-cell"><progress id="progressBar"></progress></div>
 				<div id = "vida" style = "display: table-cell; width: 75px"></div>
