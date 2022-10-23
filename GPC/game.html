@@ -18,6 +18,9 @@
 				width: 30%;
 				text-align: left;
 				z-index: 1;
+				font-family: 'Helvetica', 'Arial', sans-serif;
+				color: white;
+				font-size: 10pt;
 			}
 			#infoGame{
 				padding: 5px;
@@ -80,9 +83,9 @@
 		<div id = "infoGame">
 			<div style = "display: table-row">
 				<div id = "time" style = "display: table-cell; width: 180px"></div>
-				<div style = "display: table-cell"><progress id="progressBar"></progress></div>
+				<div id = "bar1" style = "display: table-cell"><progress id="progressBar"></progress></div>
 				<div id = "vida" style = "display: table-cell; width: 75px"></div>
-				<div style = "display: table-cell"><progress id="healthBar"></progress></div>
+				<div id = "bar2" style = "display: table-cell"><progress id="healthBar"></progress></div>
 				<div id = "stats" style = "display: table-cell"></div>
 			</div>
 		</div>
@@ -104,7 +107,7 @@
 		
 
 		<div id="info">
-			<h2>Game<br/>Mario Andreu</h2>
+			<h2>Trabajo final GPC<br/>Mario Andreu</h2>
 		</div>
 
 		<!-- Scripts de biblioteca -->
@@ -114,7 +117,7 @@
         <!-- <script src="lib/threex.keyboardstate.js"></script> -->
 				
 		<!-- Mi aplicacion -->
-		<script type="module" src="js/EscenaAuxiliar.js"></script>
+		<script type="module" src="js/game.js"></script>
 
 	</body>
 </html>

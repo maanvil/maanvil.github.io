@@ -1,5 +1,5 @@
 /**
-  robot-p4.js - Practica 4 - GPC
+  robot-p5.js - Practica 5 - GPC
   Brazo articulado realizado con Three.js_r140
 
   Mario Andreu Villar
@@ -46,7 +46,7 @@ function init()
     // Instanciar la camara perspectiva
     const ar = window.innerWidth / window.innerHeight
     camera = new THREE.PerspectiveCamera(75, ar, 1, 3000)
-    camera.position.set(100,250,100)
+    camera.position.set(200,400,-200)
     camera.lookAt(0,120,0)
 
     // Controles teclado
@@ -59,8 +59,8 @@ function init()
     cameraControls.target.set(0,120,0)
     
     // Limitar el zoom
-    // cameraControls.maxDistance = 250
-    // cameraControls.minDistance = 75
+    cameraControls.maxDistance = 250
+    cameraControls.minDistance = 75
 
     // Mini-vista camara cenital
     setMiniatura()
@@ -112,39 +112,52 @@ function loadScene()
 
     const direccional = new THREE.DirectionalLight(0xFFFFFF,0.75)
     direccional.position.set(500,500,500)
-    direccional.shadow.camera.left = -750;
-    direccional.shadow.camera.right = 750;
-    direccional.shadow.camera.top = 750;
-    direccional.shadow.camera.bottom = -750;
-    direccional.shadow.camera.far = 2000;
+    direccional.shadow.camera.left = -500;
+    direccional.shadow.camera.right = 500;
+    direccional.shadow.camera.top = 500;
+    direccional.shadow.camera.bottom = -500;
+    direccional.shadow.camera.far = 1500;
     direccional.castShadow = true
     scene.add(direccional)
     // scene.add(new THREE.CameraHelper(direccional.shadow.camera))
 
-    const puntual = new THREE.PointLight('white',0.25);
-    puntual.position.set(0,300,-55)
-    puntual.castShadow = true
-    scene.add(puntual)
+    // const puntual = new THREE.PointLight('white',0.25);
+    // puntual.position.set(0,20,20)
+    // puntual.castShadow = true
+    // scene.add(puntual)
     // scene.add( new THREE.PointLightHelper( puntual, 5, 'yellow' ) )
 
-    const focal = new THREE.SpotLight('red',0.8);
-    focal.position.set(-500,500,500);
+    const focal = new THREE.SpotLight('white',0.75);
+    focal.position.set(-500,200,500);
     focal.target.position.set(0,0,0);
-    focal.angle= Math.PI/7;
+    focal.angle= Math.PI/6
     focal.penumbra = 0.3;
     focal.castShadow= true;
-    focal.shadow.camera.far = 2000;
-    focal.shadow.camera.fov = 80;
+    focal.shadow.camera.far = 1500;
+    focal.shadow.camera.fov = 60;
     scene.add(focal);
     // scene.add(new THREE.CameraHelper(focal.shadow.camera));
 
     //--------------------------------------------
 
-    const texsuelo = new THREE.TextureLoader().load(path+"pisometalico_1024.jpg");
-    texsuelo.repeat.set(3,3);
-    texsuelo.wrapS= texsuelo.wrapT = THREE.RepeatWrapping;
-    const matsuelo = new THREE.MeshStandardMaterial({color:"rgb(150,150,150)",map:texsuelo});
+    const texSuelo = new THREE.TextureLoader().load(path+"pisometalico_1024.jpg");
+    texSuelo.repeat.set(9,9);
+    texSuelo.wrapS= texSuelo.wrapT = THREE.RepeatWrapping;
+    const matsuelo = new THREE.MeshStandardMaterial({color:'white',map:texSuelo});
 
+    const entorno = [ path+"posx.jpg", path+"negx.jpg",
+                      path+"posy.jpg", path+"negy.jpg",
+                      path+"posz.jpg", path+"negz.jpg"];
+
+    const texRotula = new THREE.CubeTextureLoader().load(entorno)
+
+    const texMetal = new THREE.TextureLoader().load(path+"metal_128.jpg")
+
+    const matMetalMate = new THREE.MeshLambertMaterial({color:'gray',map:texMetal});
+    const matMetalBrillo = new THREE.MeshPhongMaterial({color:'gold',map:texMetal,shininess:300});
+    const matEsfera = new THREE.MeshPhongMaterial({
+        color:'white', specular:'gray', shininess: 30, envMap: texRotula });
+    
     // Habitacion
     const paredes = [];
     paredes.push( new THREE.MeshBasicMaterial({side:THREE.BackSide,
@@ -172,25 +185,25 @@ function loadScene()
     suelo.rotation.x = -Math.PI/2
 
     // Base del robot
-    base = new THREE.Mesh(new THREE.CylinderGeometry(50,50,15,50), material)
+    base = new THREE.Mesh(new THREE.CylinderGeometry(50,50,15,50), matMetalMate)
 
     // Brazo del robot: formado por eje, esparrago, rotula y antebrazo
     brazo = new THREE.Object3D()
     
-    const eje = new THREE.Mesh(new THREE.CylinderGeometry(20,20,18,50), material)
+    const eje = new THREE.Mesh(new THREE.CylinderGeometry(20,20,18,50), matMetalMate)
     eje.rotation.x = -Math.PI/2
     
-    const esparrago = new THREE.Mesh(new THREE.BoxGeometry(12,120,18), material)
+    const esparrago = new THREE.Mesh(new THREE.BoxGeometry(12,120,18), matMetalMate)
     esparrago.position.y += 120/2
     esparrago.rotation.y = Math.PI/2
 
-    const rotula = new THREE.Mesh(new THREE.SphereGeometry(20,20,20), material)
+    const rotula = new THREE.Mesh(new THREE.SphereGeometry(20,20,20), matEsfera)
     rotula.position.y += 120
 
     // Antebrazo del robot: formado por disco, nervios y mano
     antebrazo = new THREE.Object3D()
 
-    const disco = new THREE.Mesh(new THREE.CylinderGeometry(22,22,6,50), material)
+    const disco = new THREE.Mesh(new THREE.CylinderGeometry(22,22,6,50), matMetalBrillo)
 
     nervios = new THREE.Object3D()
     const separacionNervios = 10
@@ -198,7 +211,7 @@ function loadScene()
     let signo = +1
     for (let i = 1; i <= 4; i++)
     {
-        let nervio = new THREE.Mesh(new THREE.BoxGeometry(4,80,4), material)
+        let nervio = new THREE.Mesh(new THREE.BoxGeometry(4,80,4), matMetalBrillo)
         nervio.position.y += 80/2
         nervio.position.x += signo * separacionNervios
         nervio.position.z += separacionNervios * ((i%2==0) ? -signo : +signo)
@@ -210,18 +223,18 @@ function loadScene()
     // Mano del robot: formada por un cilindro y dos pinzas (De & Iz)
     mano = new THREE.Object3D()
 
-    const cilindro = new THREE.Mesh(new THREE.CylinderGeometry(15,15,40,50), material)
+    const cilindro = new THREE.Mesh(new THREE.CylinderGeometry(15,15,40,50), matMetalBrillo)
     cilindro.rotation.x = -Math.PI/2
 
     pinzaDe = new THREE.Object3D()
     pinzaIz = new THREE.Object3D()
 
-    const baseDe = new THREE.Mesh(new THREE.BoxGeometry(19,20,4), material)
+    const baseDe = new THREE.Mesh(new THREE.BoxGeometry(19,20,4), matMetalBrillo)
     baseDe.position.x += 19/2
     baseDe.position.y += 20/2
     baseDe.position.z += 4/2
 
-    const baseIz = new THREE.Mesh(new THREE.BoxGeometry(19,20,4), material)
+    const baseIz = new THREE.Mesh(new THREE.BoxGeometry(19,20,4), matMetalBrillo)
     baseIz.position.x += 19/2
     baseIz.position.y += 20/2
     baseIz.position.z += 4/2
@@ -295,13 +308,48 @@ function loadScene()
         20,21,22, 22,23,20  // Bottom
     ]
 
+    const uvs = [ // 6 caras x 4 vert x 2 coor = 48 float
+        // Front 
+        0, 0, // 7
+        1, 0, // 0
+        1, 1, // 3
+        0, 1, // 4
+        // Right
+        0, 0, // 0
+        1, 0, // 1
+        1, 1, // 2
+        0, 1, // 3
+        // Back
+        0, 0, // 1
+        1, 0, // 6
+        1, 1, // 5
+        0, 1, // 2
+        // Left
+        0, 0, // 6
+        1, 0, // 7
+        1, 1, // 4
+        0, 1, // 5
+        // Top
+        0, 0, // 3
+        1, 0, // 2
+        1, 1, // 5
+        0, 1, // 4
+        // Bottom
+        0, 1, // 0
+        0, 0, // 7
+        1, 0, // 6
+        1, 1  // 1
+    ]
+
     mallaDedo.setIndex(indices)
     mallaDedo.setAttribute('position', new THREE.Float32BufferAttribute(coordenadas,3))
     mallaDedo.setAttribute('normal', new THREE.Float32BufferAttribute(normales,3))
+    mallaDedo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs,2))
     
-    const dedoDe = new THREE.Mesh(mallaDedo, material)
 
-    const dedoIz = new THREE.Mesh(mallaDedo, material)
+    const dedoDe = new THREE.Mesh(mallaDedo, matMetalBrillo)
+
+    const dedoIz = new THREE.Mesh(mallaDedo, matMetalBrillo)
     dedoIz.rotation.x += Math.PI
     dedoIz.position.y += 20
     dedoIz.position.z += 4
@@ -362,6 +410,8 @@ function loadScene()
 
     pinzaIz.add(baseIz)
     pinzaIz.add(dedoIz)
+
+    direccional.target = rotula
 
     // Ejes
     // scene.add(new THREE.AxesHelper(100))
