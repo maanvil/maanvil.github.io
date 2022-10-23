@@ -30,7 +30,7 @@ const MAX_VIDA = 10
 const MAX_TIME = 30
 const L = 5
 const ALTURA_FAROLA = 1.9
-const ALTURA_ARBOL = 3
+const ALTURA_ARBOL = 4.5
 const RADIO_PIEDRA = 0.4
 
 // Globales del grafo de escena
@@ -53,8 +53,6 @@ let farola3D = new THREE.Object3D()
 let piedra3D = new THREE.Object3D()
 
 // Otras globales
-let keyboard
-let menu
 let cenital
 let mixer, actionIdle, actionWalk, actionDance, actions
 let sizeVacaX, sizeVacaY, sizeVacaZ
@@ -64,7 +62,7 @@ let downloadTimer
 let materialBlanco
 let materialAmarillo
 let materialNormal
-let direccional, focal
+let direccional, focal, luzCencerro
 
 // Objetos
 let positions = []
@@ -80,11 +78,13 @@ let puntos = 0
 let vida = MAX_VIDA
 let recordsPoints = new Array(3).fill(0)
 let recordsDates = new Array(3).fill('-')
+let paredes = []
 
 // Globales personaje
 let moviendose = false
 let lastState = false
 let dobleClick = false
+let finPartida = false
 
 // temporary data
 let walkDirection = new THREE.Vector3()
@@ -110,9 +110,6 @@ let cameraControls, menuGUI
 /*********************************************/
 /*********************************************/
 
-renderer.domElement.addEventListener( 'dblclick', () => endGame() )
-document.getElementById("pantallaFin").style.cssText += 'display: none;'
-
 // Acciones
 init();
 loadPhysicalWorld();
@@ -125,13 +122,10 @@ function init()
     // Instanciar el motor de render
     renderer.setSize(window.innerWidth,window.innerHeight);
     document.getElementById('container').appendChild( renderer.domElement );
-    renderer.shadowMap.enabled = true;
-    renderer.antialias = true;
+    renderer.shadowMap.enabled = true
+    renderer.antialias = true
     renderer.autoClear = false
     renderer.setClearColor(0xFFFFFF)
-
-    //Lower resolution
-    renderer.setPixelRatio( window.devicePixelRatio * 0.5 );
 
     // Reloj
     reloj.start();
@@ -318,7 +312,6 @@ function loadVisualWorld()
 
     // Habitacion
     let path = "./images/Nalovardo/"
-    const paredes = [];
     paredes.push( new THREE.MeshBasicMaterial({side:THREE.BackSide,
                   map: new THREE.TextureLoader().load(path+"posx.jpg")}) );
     paredes.push( new THREE.MeshBasicMaterial({side:THREE.BackSide,
@@ -389,13 +382,14 @@ function allModelsLoaded()
     })
 
     // Luz puntual
-    let light = new THREE.PointLight( 'white', 1);
-    // light.castShadow = true // queda mejor si esta no las genera (y mucho mejor rendimiento)
+    luzCencerro = new THREE.PointLight('white', 0.2, 3);
+    // luzCencerro.castShadow = true // queda mejor si esta no las genera (y mucho mejor rendimiento)
 
-    light.position.set(0,sizeVacaY*0.4,sizeVacaZ*1,1);
-    vaca3D.add( light );
+    luzCencerro.position.set(0,sizeVacaY*0.4,sizeVacaZ*1,1);
+    vaca3D.add( luzCencerro );
+    luzCencerro.visible = true // solo visible de noche
 
-    const pointLightHelper = new THREE.PointLightHelper( light, 0.25, 'red' );
+    const pointLightHelper = new THREE.PointLightHelper( luzCencerro, 0.25, 'red' );
     auxPhysical.add( pointLightHelper );
 }
 
@@ -556,6 +550,27 @@ function getNewPosition(min,max,x,z)
     return [resX, resZ]
 }
 
+function animate(event)
+{
+    // Capturar y normalizar
+    let x = event.clientX
+    let y = event.clientY
+    x = ( x / window.innerWidth ) * 2 - 1;
+    y = -( y / window.innerHeight ) * 2 + 1;
+
+    // Construir el rayo y detectar la interseccion
+    const rayo = new THREE.Raycaster();
+    rayo.setFromCamera(new THREE.Vector2(x,y), camera);
+    let intersecciones = rayo.intersectObjects(vaca3D.children, true);
+
+    if( intersecciones.length > 0 )
+    {
+        actionIdle.fadeOut(fadeDuration)
+        actionWalk.fadeOut(fadeDuration)
+        actionDance.reset().fadeIn(fadeDuration).play()
+    }
+}
+
 function setupGUI()
 {
 	// Definicion de los controles
@@ -576,6 +591,8 @@ function setupGUI()
         {
             focal.intensity = noche ? 0.2 : 0.5 
             direccional.intensity = noche ? 0.5 : 1
+            luzCencerro.intensity = noche ? 1 : 0.2
+            paredes.forEach( p => p.color.set(noche ? 0x4d4dae : 0xffffff) )
         }
     )
 	h.add(menuGUI, 'showHelpersFisica').name('Mostrar físicas').onChange( bool => auxPhysical.visible = bool )
@@ -667,11 +684,12 @@ function update()
 
     if (mixer) 
     {
-        if (lastState != moviendose) 
+        if (lastState != moviendose & !finPartida) 
         {
             const toPlay = moviendose ? actionWalk : actionIdle
             const current = moviendose ? actionIdle : actionWalk
             
+            actionDance.fadeOut(fadeDuration)
             current.fadeOut(fadeDuration)
             toPlay.reset().fadeIn(fadeDuration).play();
 
@@ -683,8 +701,6 @@ function update()
 
     if (moviendose && !dobleClick) 
     {
-console.log("Number of Triangles :", renderer.info.render.triangles);
-
         // calculate towards camera direction
         var angleYCameraDirection = Math.atan2(
             (camera.position.x - boxBody.position.x), 
@@ -763,15 +779,13 @@ function render()
     else 
         ladoMiniatura = window.innerHeight / 4
     
-    if (menuGUI.niebla) scene.fog = new THREE.FogExp2(menuGUI.noche ? 'black' : 'white', 0)
-    else scene.fog = undefined
+    scene.fog = new THREE.FogExp2(menuGUI.noche ? 'black' : 'white', 0)
 
     // El S.R. del viewport es left-bottom con X right y Y up
     renderer.setViewport(0,window.innerHeight-ladoMiniatura+1,ladoMiniatura,ladoMiniatura)
     renderer.render(scene,cenital)
 
-    if (menuGUI.niebla) scene.fog = new THREE.FogExp2(menuGUI.noche ? 'black' : 'white', 0.1)
-    else scene.fog = undefined
+    scene.fog = new THREE.FogExp2(menuGUI.noche ? 'black' : 'white', menuGUI.niebla ? 0.1 : 0)
 
     renderer.setViewport(0,0,window.innerWidth,window.innerHeight)
     renderer.render(scene,camera)
@@ -784,6 +798,9 @@ function startGame()
     puntos = 0
     vida = MAX_VIDA
     timeleft = MAX_TIME
+    finPartida = false
+    actionDance.fadeOut(fadeDuration)
+    actionIdle.reset().fadeIn(fadeDuration).play()
     updateHTMLstats()
 
     document.getElementById("menu").style.cssText += 'display: none;'
@@ -811,6 +828,12 @@ Bien jugado pero, ¿crees que puedes hacerlo mejor?<br>`
     vida = MAX_VIDA
     timeleft = MAX_TIME
     updateHTMLstats()
+
+    // Al finalizar la vaca baila
+    finPartida = true
+    actionIdle.fadeOut(fadeDuration)
+    actionWalk.fadeOut(fadeDuration)
+    actionDance.reset().fadeIn(fadeDuration).play()
     
     document.getElementById("pantallaFin").style.display = ''
 }
@@ -831,6 +854,8 @@ function setMiniatura()
 
 function setupListeners()
 {
+    renderer.domElement.addEventListener('dblclick', (event) => animate(event) )
+
     document.addEventListener('keydown', (event) => 
     {
         moviendose = true
@@ -905,26 +930,26 @@ function setupListeners()
 
 function directionOffset(keysPressed) 
 {
-    let directionOffset = 0 // w
+    let directionOffset = 0
 
-    if (keysPressed['arrowdown']) {
-        if (keysPressed['arrowright']) {
-            directionOffset = Math.PI / 4 // w+a
-        } else if (keysPressed['arrowleft']) {
-            directionOffset = - Math.PI / 4 // w+d
-        }
-    } else if (keysPressed['arrowup']) {
-        if (keysPressed['arrowright']) {
-            directionOffset = Math.PI / 4 + Math.PI / 2 // s+a
-        } else if (keysPressed['arrowleft']) {
-            directionOffset = -Math.PI / 4 - Math.PI / 2 // s+d
-        } else {
-            directionOffset = Math.PI // s
-        }
-    } else if (keysPressed['arrowright']) {
-        directionOffset = Math.PI / 2 // a
-    } else if (keysPressed['arrowleft']) {
-        directionOffset = - Math.PI / 2 // d
+    if (keysPressed['arrowdown']) 
+    {
+        if      (keysPressed['arrowright']) directionOffset =   Math.PI / 4
+        else if (keysPressed['arrowleft'] ) directionOffset = - Math.PI / 4
+    } 
+    else if (keysPressed['arrowup'] || keysPressed[" "]) 
+    {
+        if      (keysPressed['arrowright']) directionOffset =  Math.PI / 4 + Math.PI / 2
+        else if (keysPressed['arrowleft'] ) directionOffset = -Math.PI / 4 - Math.PI / 2
+        else                                directionOffset =  Math.PI
+    } 
+    else if (keysPressed['arrowright']) 
+    {
+        directionOffset = Math.PI / 2
+    } 
+    else if (keysPressed['arrowleft']) 
+    {
+        directionOffset = - Math.PI / 2
     }
 
     return directionOffset
@@ -963,7 +988,8 @@ function loadModels()
         
             glloader.load('models/plants.glb', (obj) =>
             {
-                planta3D.add(obj.scene);
+                planta3D.add(obj.scene)
+                obj.scene.children[0].children[0].children[0].children[2].children[0].material.color.set(0x234f1e) // Blanco => verde
                 obj.scene.scale.set(0.09,0.09,0.09);
                 planta3D.traverse( (ob) => {if (ob.isObject3D) ob.castShadow = true})
 
