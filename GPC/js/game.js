@@ -5,17 +5,17 @@
   Mario Andreu Villar
   @author maanvil@inf.upv.es
   @date   Oct,2022
-  @license (CC BY-NC-SA 4.0) https://creativecommons.org/licenses/by-nc-sa/4.0/
+  @license CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/
 */
 
-// Modulos necesarios
+// Módulos necesarios
 import * as THREE from '../lib/three.module.js'
+import * as CANNON from '../lib/cannon-es.js'
 import {OrbitControls} from '../lib/OrbitControls.module.js'
+import {GLTFLoader} from '../lib/GLTFLoader.module.js'
+import {TWEEN} from '../lib/tween.module.min.js'
 import {GUI} from '../lib/lil-gui.module.min.js'
 import Stats from '../lib/stats.module.js'
-import {TWEEN} from '../lib/tween.module.min.js'
-import * as CANNON from '../lib/cannon-es.js'
-import {GLTFLoader} from '../lib/GLTFLoader.module.js'
 
 // Globales convenidas por threejs
 const renderer = new THREE.WebGLRenderer()
@@ -26,22 +26,23 @@ const scene = new THREE.Scene()
 const MAX_SPACE = 50
 const SIZE_QUAD = 5
 const OFFSET_Y = 10
+const MAX_VIDA = 10
+const MAX_TIME = 30
 const SIZE_VACA_X = 0.5
 const SIZE_VACA_Y = 1
 const SIZE_VACA_Z = 0.7
 const ALTURA_DULCE = 1.5
-const MAX_VIDA = 10
-const MAX_TIME = 30
 const ALTURA_FAROLA = 1.9
 const ALTURA_ARBOL = 4.5
 const RADIO_PIEDRA = 0.4
-const L = 5
+const ANCHO_CENITAL = 5
 const FADE_DURATION = 0.2
 const VELOCIDAD_VACA = 5
 
 // Globales del grafo de escena
 let visual = new THREE.Object3D() // Parte visual 
-let auxPhysical = new THREE.Object3D() // Además de las físicas, contiene los helpers
+let auxPhysical = new THREE.Object3D() // Wireframe meshes como auxiliar del mundo 
+                                       // físico, también contiene los helpers
 let vaca3D = new THREE.Object3D()
 let paisaje3D = new THREE.Group()
 let dulces3D = new THREE.Group()
@@ -59,12 +60,12 @@ let farola3D = new THREE.Object3D()
 let piedra3D = new THREE.Object3D()
 
 // Objetos
-let positions = []
+let positions = []  // Posiciones de los objetos para no colisionar
 let piedras = []
 let arboles = []
 let dulces = []
 let farolas = []
-let boxMesh, boxBody, cabezaMesh, cabezaBody
+let boxMesh, boxBody, cabezaMesh, cabezaBody  // Vaca
 let paredes = []
 
 // Otras globales
@@ -100,7 +101,6 @@ let world
 
 /*********************************************/
 /*********************************************/
-/*********************************************/
 
 // Acciones
 init()
@@ -108,6 +108,9 @@ loadPhysicalWorld()
 loadVisualWorld()
 setupGUI()
 render()
+
+/*********************************************/
+/*********************************************/
 
 /**
  * Inicializa la escena y básicos
@@ -256,7 +259,7 @@ function loadPhysicalWorld()
                 updateHTMLstats() 
             } 
             
-            if (vida == 0 && !finPartida) endGame()
+            if (vida <= 0 && !finPartida) endGame()
         }
         lastColision = e.body.id
     })
@@ -278,24 +281,11 @@ function loadPhysicalWorld()
                 vida = Math.max(vida - 1, 0)
                 updateHTMLstats() 
             } 
+            
+            if (vida <= 0 && !finPartida) endGame()
         }
         lastColision = e.body.id
     })
-}
-
-/**
- * Actualiza la barra superior de estadísticas sobre el juego
- */
-function updateHTMLstats()
-{
-    if (!finPartida)
-    {
-        document.getElementById('stats').innerHTML = '<b> Puntos: ' + puntos + ' <b>'
-        document.getElementById('healthBar').value = vida
-        document.getElementById('progressBar').value = timeleft
-        document.getElementById('vida').innerHTML = '<b> Vida: ' + vida + ' <b>'
-        document.getElementById('time').innerHTML = '<b> Tiempo restante: ' + timeleft + ' s <b>'
-    }
 }
 
 /**
@@ -347,7 +337,7 @@ function loadVisualWorld()
     suelo.rotation.x = -Math.PI/2
     suelo.receiveShadow = true
 
-    // Habitacion
+    // Habitación
     let path = './images/Nalovardo/'
     paredes.push( new THREE.MeshBasicMaterial({side:THREE.BackSide,
                   map: new THREE.TextureLoader().load(path+'posx.jpg')}) )
@@ -367,7 +357,7 @@ function loadVisualWorld()
     // Modelos (y escena)
     loadModels() // Cuando los carga todos llama a su vez a ===>>> allModelsLoaded()
 
-    // Cajas vaca (wireframe helpers)
+    // Cajas vaca (wireframe helpers de físicas)
     boxMesh = new THREE.Mesh(new THREE.BoxGeometry(SIZE_VACA_X,SIZE_VACA_Y,SIZE_VACA_Z), materialBlanco)
     auxPhysical.add(boxMesh)
     cabezaMesh = new THREE.Mesh(new THREE.BoxGeometry(SIZE_VACA_X,SIZE_VACA_Y,SIZE_VACA_Z*2), materialAmarillo)
@@ -401,6 +391,7 @@ function loadVisualWorld()
 function allModelsLoaded()
 {
     // Farolas -> Eliminadas porque mermaban mucho el rendimiento
+
     // putFarola(MAX_SPACE*0.4,MAX_SPACE*0.4)
     // putFarola(MAX_SPACE*0.4,-MAX_SPACE*0.4)
     // putFarola(-MAX_SPACE*0.4,MAX_SPACE*0.4)
@@ -413,6 +404,7 @@ function allModelsLoaded()
         for (let z = -(MAX_SPACE/2/SIZE_QUAD-1); z < MAX_SPACE/2/SIZE_QUAD; z++)
         {
             if (x == 0 && z == 0) continue // En el central solo estará la vaca
+
             putObjectsInQuad(x*SIZE_QUAD, z*SIZE_QUAD)
         }
     }
@@ -430,13 +422,19 @@ function allModelsLoaded()
 
     // Luz puntual en el cencerro 
     luzCencerro = new THREE.PointLight('white', 0.2, 3)
-    // luzCencerro.castShadow = true        // Queda mejor si esta no las genera (y mayor rendimiento)
+    // luzCencerro.castShadow = true    // Me parece que queda mejor si ésta no las genera (y mayor rendimiento)
     luzCencerro.position.set(0, SIZE_VACA_Y*0.4, SIZE_VACA_Z*1,1)
     vaca3D.add(luzCencerro)
     const pointLightHelper = new THREE.PointLightHelper(luzCencerro, 0.25, 'red')
     auxPhysical.add( pointLightHelper )
 }
 
+/**
+ * Repartimos el espacio en cuadrículas de SIZE_QUAD * SIZE_QUAD
+ * Cada cuadrícula tendrá un par de objetos aleatorios
+ * @param {number} x Posición x del quad 
+ * @param {number} z Posición z del quad 
+ */
 function putObjectsInQuad(x,z)
 {
     let rdm = Math.random()
@@ -449,11 +447,18 @@ function putObjectsInQuad(x,z)
     if (rdm < 0.5) putFlor(x,z)
 }
 
+/**
+ * Coloca un dulce en una posición pseudo-aleatoria 
+ *  dentro del quad definido por (x,z)
+ * @param {number} x Posición x del quad 
+ * @param {number} z Posición z del quad 
+ */
 function putDulce(x,z)
 {
-    let pos = getNewPosition(-4,4,x,z)
+    // Posición pseudo-aleatoria dentro del quad 
+    let pos = getNewPosition(-(SIZE_QUAD/2-1), SIZE_QUAD/2-1, x, z)
 
-    // Mesh fisico-visual
+    // Mesh físico-visual
     let dulceGeo = new THREE.CylinderGeometry(0.7,0.7,0.4,10)  
     let dulceMesh = new THREE.Mesh(dulceGeo, materialBlanco)
     auxPhysical.add(dulceMesh)
@@ -462,24 +467,32 @@ function putDulce(x,z)
     let dulce = dulce3D.clone()
     dulces3D.add(dulce)
 
-    // Fisica
+    // Físicas
     let dulceBody = new CANNON.Body({
         type: CANNON.Body.STATIC,
         shape: new CANNON.Cylinder(0.7,0.7,0.4,10),
         position: new CANNON.Vec3(pos[0], ALTURA_DULCE, pos[1])
     })
     dulceBody.name = 'dulce'
-    dulceBody.collisionResponse = false
+    dulceBody.collisionResponse = false // El dulce NO debe ser un objeto sólido que oponga resistencia
     world.addBody(dulceBody)
 
+    // Almacenamos en global
     dulces.push([dulce,dulceBody,dulceMesh])
 }
 
+/**
+ * Coloca una piedra en una posición pseudo-aleatoria 
+ *  dentro del quad definido por (x,z)
+ * @param {number} x Posición x del quad 
+ * @param {number} z Posición z del quad 
+ */
 function putPiedra(x,z)
 {
-    let pos = getNewPosition(-4,4,x,z)
+    // Posición pseudo-aleatoria dentro del quad 
+    let pos = getNewPosition(-(SIZE_QUAD/2-1), SIZE_QUAD/2-1, x, z)
 
-    // Mesh fisico-visual
+    // Mesh físico-visual
     let piedraGeo = new THREE.SphereGeometry(RADIO_PIEDRA,5,5)
     let piedraMesh = new THREE.Mesh(piedraGeo, materialBlanco)
     auxPhysical.add(piedraMesh)
@@ -488,7 +501,7 @@ function putPiedra(x,z)
     let piedra = piedra3D.clone()
     piedras3D.add(piedra)
 
-    // Fisica
+    // Físicas
     let piedraBody = new CANNON.Body({
         mass:10,
         shape: new CANNON.Sphere(RADIO_PIEDRA),
@@ -497,14 +510,22 @@ function putPiedra(x,z)
     piedraBody.name = 'piedra'
     world.addBody(piedraBody)
 
+    // Almacenamos en global
     piedras.push([piedra,piedraBody,piedraMesh])
 }
 
+/**
+ * Coloca un árbol en una posición pseudo-aleatoria 
+ *  dentro del quad definido por (x,z)
+ * @param {number} x Posición x del quad 
+ * @param {number} z Posición z del quad 
+ */
 function putArbol(x,z)
 {
-    let pos = getNewPosition(-4,4,x,z)
+    // Posición pseudo-aleatoria dentro del quad 
+    let pos = getNewPosition(-(SIZE_QUAD/2-1), SIZE_QUAD/2-1, x, z)
 
-    // Mesh fisico-visual
+    // Mesh físico-visual
     let arbolGeo = new THREE.CylinderGeometry(0.3,0.3,ALTURA_ARBOL,10)  
     let arbolMesh = new THREE.Mesh(arbolGeo, materialBlanco)
     auxPhysical.add(arbolMesh)
@@ -513,7 +534,7 @@ function putArbol(x,z)
     let arbol = arbol3D.clone()
     arboles3D.add(arbol)
 
-    // Fisica
+    // Físicas
     let arbolBody = new CANNON.Body({
         type: CANNON.Body.STATIC,
         shape: new CANNON.Cylinder(0.3,0.3,ALTURA_ARBOL,10),
@@ -522,15 +543,21 @@ function putArbol(x,z)
     arbolBody.name = 'arbol'
     world.addBody(arbolBody)
 
+    // Almacenamos en global
     arboles.push([arbol,arbolBody,arbolMesh])
 }
 
+/**
+ * Coloca una farola (con luz real) en la posición exacta dada por (x,z) 
+ * @param {number} x Posición x de la farola 
+ * @param {number} z Posición z de la farola 
+ */
 function putFarola(x,z)
 {
-    let pos = [x,z]
-    positions.push(pos)
+    let pos = [x,z]         // Simplemente por homogeneizar sintaxis
+    positions.push(pos)     // Guardamos la pos manualmente (getNewPosition() ya lo hacía en los otros casos)
     
-    // Mesh fisico-visual
+    // Mesh físico-visual
     let anchoFarola = 0.5
     let farolaGeo = new THREE.BoxGeometry(anchoFarola,ALTURA_FAROLA,anchoFarola)  
     let farolaMesh = new THREE.Mesh(farolaGeo, materialBlanco)
@@ -540,7 +567,7 @@ function putFarola(x,z)
     let farola = farola3D.clone()
     farolas3D.add(farola)
 
-    // Fisica
+    // Físicas
     let farolaBody = new CANNON.Body({
         type: CANNON.Body.STATIC,
         shape: new CANNON.Box(new CANNON.Vec3(anchoFarola/2,ALTURA_FAROLA/2,anchoFarola/2)),
@@ -552,19 +579,25 @@ function putFarola(x,z)
     // Luz puntual
     let light = new THREE.PointLight( 0xffee80, 1)
     light.castShadow = true
-
-    farolas.push([farola,farolaBody,farolaMesh,light])
-
     light.position.set(farolaBody.position.x,0.65*ALTURA_FAROLA,farolaBody.position.z)
     farolas3D.add( light )
-
     const pointLightHelper = new THREE.PointLightHelper( light, 0.25, 'red' )
     auxPhysical.add( pointLightHelper )
+
+    // Almacenamos en global (véase que ésta tiene len=4, también contiene la luz)
+    farolas.push([farola,farolaBody,farolaMesh,light])
 }
 
+/**
+ * Coloca una flor/planta en una posición pseudo-aleatoria 
+ *  dentro del quad definido por (x,z)
+ * Véase que las flores/plantas no tienen físicas y se pueden atravesar
+ * @param {number} x Posición x del quad 
+ * @param {number} z Posición z del quad 
+ */
 function putFlor(x,z)
 {
-    // Flor aleatoria
+    // Tipo de flor/planta aleatorio
     let rdm = Math.random()
 
     let flor 
@@ -573,16 +606,31 @@ function putFlor(x,z)
     else if (rdm < 0.75) flor = tulipan3D.clone()
     else                 flor = anemona3D.clone()
 
-    let pos = getNewPosition(-4,4,x,z)
+    // Posición pseudo-aleatoria dentro del quad 
+    let pos = getNewPosition(-(SIZE_QUAD/2-1), SIZE_QUAD/2-1, x, z)
+
+    // Colocamos la flor/planta
     flor.position.x = pos[0]
     flor.position.z = pos[1]
     flores3D.add(flor)
 }
 
+/**
+ * Genera una posición pseudo-aleatoria dentro de un quad tal que
+ *  no colisiona con elementos ya colocados en el mapa
+ * @param {number} min Valor mínimo (relativo) de la posición
+ * @param {number} max Valor máximo (relativo) de la posición
+ * @param {number} x Posición x del quad 
+ * @param {number} z Posición z del quad 
+ * @returns [resX, resZ] Array con las posiciones nuevas
+ */
 function getNewPosition(min,max,x,z)
 {
+    // Generamos las posiciones
     let resX = getRandomIntInclusive(min,max) + x 
     let resZ = getRandomIntInclusive(min,max) + z 
+
+    // Regeneramos hasta evitar colisión
     let collision = positions.findIndex(a => a[0] == resX && a[1] == resZ)
     while (collision != -1)
     {
@@ -590,59 +638,58 @@ function getNewPosition(min,max,x,z)
         resZ = getRandomIntInclusive(min,max) + z 
         collision = positions.findIndex(a => a[0] == resX && a[1] == resZ)
     }
+
+    // Almacenamos las posiciones
     positions.push([resX, resZ])
+
     return [resX, resZ]
 }
 
-function animate(event)
-{
-    // Capturar y normalizar
-    let x = event.clientX
-    let y = event.clientY
-    x = ( x / window.innerWidth ) * 2 - 1
-    y = -( y / window.innerHeight ) * 2 + 1
+////////////////////////////////////////////////////
 
-    // Construir el rayo y detectar la interseccion
-    const rayo = new THREE.Raycaster()
-    rayo.setFromCamera(new THREE.Vector2(x,y), camera)
-    let intersecciones = rayo.intersectObjects(vaca3D.children, true)
-
-    if( intersecciones.length > 0 )
-    {
-        actionIdle.fadeOut(FADE_DURATION)
-        actionWalk.fadeOut(FADE_DURATION)
-        actionDance.reset().fadeIn(FADE_DURATION).play()
-    }
-}
-
+/**
+ * Configura la GUI desplegable de la derecha
+ * Esta GUI permite modificar la escena:
+ *  - Activar/desactivar la niebla
+ *  - Activar/desactivar el modo noche
+ *  - Activar/desactivar la visualización de los helpers y físicas
+ */
 function setupGUI()
 {
-	// Definicion de los controles
+	// Definición de los controles
 	menuGUI = {
 		niebla : true,
-        showHelpersFisica : false,
-        noche : false
+        noche : false,
+        showHelpersFisica : false
 	}
 
-	// Creacion interfaz
+	// Creación de la interfaz (la colocamos por debajo de la barra de puntos, vida, etc.)
 	const gui = new GUI({title:''})
-    gui.domElement.style.cssText = 'position:absolute;top:28px;right:0px;';
+    gui.domElement.style.cssText = 'position:absolute;top:28px;right:0px;'; 
 
-	// Construccion del menu
+	// Construcción del menú
 	const h = gui.addFolder('Ambiente')
 	h.add(menuGUI, 'niebla').name('Niebla')
 	h.add(menuGUI, 'noche').name('Paisaje nocturno').onChange( noche => 
         {
-            focal.intensity = noche ? 0.2 : 0.5 
+            /* 
+             * El modo noche baja la intensidad de la focal y direccional, 
+             *  aumenta la intensidad de la puntual (cencerro) y 
+             *  cambia el color de fondo de las paredes para que simule 
+             *  que el cielo se torna más oscuro 
+             */
+            focal.intensity = noche ? 0.2 : 0.5
             direccional.intensity = noche ? 0.5 : 1
             luzCencerro.intensity = noche ? 1 : 0.2
             paredes.forEach( p => p.color.set(noche ? 0x4d4dae : 0xffffff) )
         }
     )
 	h.add(menuGUI, 'showHelpersFisica').name('Mostrar físicas').onChange( bool => auxPhysical.visible = bool )
-
 }
 
+/**
+ * Isotropía frente a redimensión del canvas
+ */
 function updateAspectRatio()
 {
     // Cambia las dimensiones del canvas
@@ -656,18 +703,23 @@ function updateAspectRatio()
     camera.updateProjectionMatrix()
 }
 
+/**
+ * Actualización de la escena
+ */
 function update()
 {
-    const delta = reloj.getDelta()	// tiempo en segundos que ha pasado por si hace falte
-	world.fixedStep()					// recalcula el mundo a periodo fijo (60Hz)
+    const delta = reloj.getDelta()	// Tiempo en segundos que ha pasado
+	world.fixedStep()				// Recalcula el mundo a periodo fijo (60Hz)
 
     // Actualiza el monitor 
 	stats.update()
 
-    // Actualiza la interpolacion
+    // Actualiza la interpolación
     TWEEN.update()
 
-    // Sincronizacion visual-fisico
+    //-----------------------------------------
+    // Sincronización visual-física:
+
     // Vaca
     // modelo 
     vaca3D.position.copy(boxBody.position)
@@ -690,7 +742,7 @@ function update()
         farolas[i][2].quaternion.copy(farolas[i][1].quaternion)
     }
 
-    // Arboles
+    // Árboles
     for (let i = 0; i < arboles.length; i++)
     {
         // modelo
@@ -726,14 +778,17 @@ function update()
         dulces[i][2].quaternion.copy(dulces[i][1].quaternion)
     }
 
-    if (mixer) 
+    //-----------------------------------------
+    // Animación de la vaca
+
+    if (mixer) // Si está definido <=> si ya ha cargado el modelo 
     {
         if (lastState != moviendose & !finPartida) 
         {
             const toPlay = moviendose ? actionWalk : actionIdle
             const current = moviendose ? actionIdle : actionWalk
             
-            actionDance.fadeOut(FADE_DURATION)
+            actionDance.fadeOut(FADE_DURATION) // El baile se apaga siempre
             current.fadeOut(FADE_DURATION)
             toPlay.reset().fadeIn(FADE_DURATION).play()
 
@@ -743,28 +798,31 @@ function update()
         mixer.update(delta)
     }
 
+    //-----------------------------------------
+    // Desplazamiento de la vaca (y cámara)
+
     if (moviendose) 
     {
-        // calculate towards camera direction
+        // Calcular hacia la dirección de la cámara
         var angleYCameraDirection = Math.atan2(
             (camera.position.x - boxBody.position.x), 
             (camera.position.z - boxBody.position.z))
 
-        // diagonal movement angle offset
+        // Offset del ángulo de movimiento diagonal
         let offset = directionOffset(keysPressed)
 
-        // rotate model
+        // Rotamos el modelo
         rotateQuarternion.setFromAxisAngle(rotateAngle, angleYCameraDirection + offset)
         vaca3D.quaternion.rotateTowards(rotateQuarternion, 0.2)
         boxBody.quaternion.copy(vaca3D.quaternion)
 
-        // calculate direction
+        // Calculamos la dirección
         camera.getWorldDirection(walkDirection)
         walkDirection.y = 0
         walkDirection.normalize()
         walkDirection.applyAxisAngle(rotateAngle, offset)
 
-        // move model & camera
+        // Movemos el modelo y la física
         const moveX = walkDirection.x * VELOCIDAD_VACA * delta
         const moveZ = walkDirection.z * VELOCIDAD_VACA * delta
         vaca3D.position.x -= moveX
@@ -772,11 +830,11 @@ function update()
         boxBody.position.x -= moveX
         boxBody.position.z -= moveZ
 
-        // move cameras
+        // Movemos la cámara perspectiva
         camera.position.x -= moveX
         camera.position.z -= moveZ
 
-        // update camera target
+        // Actualizamos el target de la cámara
         cameraTarget.x = vaca3D.position.x
         cameraTarget.y = vaca3D.position.y + 1
         cameraTarget.z = vaca3D.position.z
@@ -784,17 +842,22 @@ function update()
 
     }
 
+    //-----------------------------------------
     // Mueve el dulce si se lo come (en vez de borrarlo y crear uno nuevo)
+
     if (toMove)
     {
         let pos = getNewPosition(-MAX_SPACE/2.1, MAX_SPACE/2.1, 0, 0)
 
-        toMove[0].position.set(pos[0],ALTURA_DULCE,pos[1])
-        toMove[1].position.set(pos[0],ALTURA_DULCE,pos[1])
-        toMove[2].position.set(pos[0],ALTURA_DULCE,pos[1])
+        toMove[0].position.set(pos[0],ALTURA_DULCE,pos[1]) // Modelo
+        toMove[1].position.set(pos[0],ALTURA_DULCE,pos[1]) // Body físico
+        toMove[2].position.set(pos[0],ALTURA_DULCE,pos[1]) // Mesh
 
         toMove = undefined
     }
+
+    //-----------------------------------------
+    // Evitamos que la vaca vuelque
 
     if (boxBody.position.y > 0.5) boxBody.position.y = 0.49999
     if (boxBody.position.y < 0.49) boxBody.position.y = 0.49999
@@ -803,10 +866,17 @@ function update()
     if (boxBody.quaternion.z > 0.001 || boxBody.quaternion.z < -0.001)
         boxBody.quaternion.z = 0
 
+    //-----------------------------------------
+    // La cámara cenital siempre sigue a la vaca
+    // No puedo hacer esto con la perspectiva porque rompería OrbitControls
+
     cenital.position.x = boxBody.position.x
     cenital.position.z = boxBody.position.z
 }
 
+/**
+ * Renderización de la escena
+ */
 function render()
 {
     requestAnimationFrame(render)
@@ -814,59 +884,87 @@ function render()
 
     renderer.clear()
 
-    /* La miniatura cenital esta superpuesta a la vista 
-    general en el angulo superior izquierdo, cuadrada, 
-    de 1/4 de la dimensión menor de la vista general */
+    /* 
+     * La miniatura cenital esta superpuesta a la vista 
+     * general en el ángulo superior izquierdo, cuadrada, 
+     * de 1/4 de la dimensión menor de la vista general 
+     */
     let ladoMiniatura
     if (window.innerWidth < window.innerHeight)
         ladoMiniatura = window.innerWidth / 4
     else 
         ladoMiniatura = window.innerHeight / 4
     
-    scene.fog = new THREE.FogExp2(menuGUI.noche ? 0x4d4dae : 'white', 0)
+    // NOTA: El S.R. del viewport es left-bottom con X right y Y up
+    
+    //-----------------------------------------
+    // Niebla y renderizado
+    // Se activa aquí para que se vea en la cámara perspectiva 
+    //   pero no en la vista cenital (ya que se vería todo blanco)
 
-    // El S.R. del viewport es left-bottom con X right y Y up
-    renderer.setViewport(0,window.innerHeight-ladoMiniatura+1,ladoMiniatura,ladoMiniatura)
-    renderer.render(scene,cenital)
+    // A cero para que se vea bien la escena
+    scene.fog = new THREE.FogExp2(menuGUI.noche ? 0x4d4dae : 'white', 0) 
 
+    // Renderizamos la cenital 
+    renderer.setViewport(0, window.innerHeight-ladoMiniatura+1, ladoMiniatura, ladoMiniatura)
+    renderer.render(scene, cenital)
+
+    // Activamos niebla (solo si está activa en menuGUI)
     scene.fog = new THREE.FogExp2(menuGUI.noche ? 0x4d4dae : 'white', menuGUI.niebla ? 0.1 : 0)
 
+    // Renderizamos la perspectiva
     renderer.setViewport(0,0,window.innerWidth,window.innerHeight)
-    renderer.render(scene,camera)
+    renderer.render(scene, camera)
 }
 
 ////////////////////////////////////////////////////
+// Lógica básica del juego
 
+/**
+ * Inicializa el juego y activa la cuenta atrás
+ */
 function startGame() 
 {
     puntos = 0
     vida = MAX_VIDA
     timeleft = MAX_TIME
     finPartida = false
-    actionDance.fadeOut(FADE_DURATION)
-    actionIdle.reset().fadeIn(FADE_DURATION).play()
     updateHTMLstats()
 
+    // Pone a la vaca en modo Idle
+    actionDance.fadeOut(FADE_DURATION)
+    actionIdle.reset().fadeIn(FADE_DURATION).play()
+
+    // Quita los menús HTML
     document.getElementById('menu').style.cssText += 'display: none;'
     document.getElementById('pantallaFin').style.cssText += 'display: none;'
 
-    // Cuenta atras
-    cuentaAtras = setInterval(() => 
+    // Activa la cuenta atrás
+    cuentaAtras = setInterval( () => 
     {
         if (--timeleft <= 0) endGame()
         updateHTMLstats()
     }, 
-    1000)
+    1000) // Cada segundo
 }
 
+/**
+ * Finaliza el juego
+ */
 function endGame() 
 {
+    // Apaga el interval
     clearInterval(cuentaAtras)
+
+    // Almacena los puntos
     addRecord(puntos)
+
+    // Configura el cartel de fin
     document.getElementById('finText').innerHTML =  `¡Fin de la partida!<br>
 Has conseguido recoger <b>${puntos}</b> dulce${puntos == 1 ? '' : 's'}<br>
 Bien jugado pero, ¿crees que puedes hacerlo mejor?<br>`
 
+    // Resetea los stats (por si acaso)
     puntos = 0
     vida = MAX_VIDA
     timeleft = MAX_TIME
@@ -878,39 +976,67 @@ Bien jugado pero, ¿crees que puedes hacerlo mejor?<br>`
     actionWalk.fadeOut(FADE_DURATION)
     actionDance.reset().fadeIn(FADE_DURATION).play()
     
+    // Muestra el cartel de fin
     document.getElementById('pantallaFin').style.display = ''
 }
 
 ////////////////////////////////////////////////////
+// Otros métodos 
 
+/**
+ * Actualiza la barra superior de estadísticas sobre el juego
+ */
+function updateHTMLstats()
+{
+    if (!finPartida) // Si se ha acabado, no actualizamos nada => no se juega
+    {
+        document.getElementById('stats').innerHTML = '<b> Puntos: ' + puntos + ' <b>'
+        document.getElementById('healthBar').value = vida
+        document.getElementById('progressBar').value = timeleft
+        document.getElementById('vida').innerHTML = '<b> Vida: ' + vida + ' <b>'
+        document.getElementById('time').innerHTML = '<b> Tiempo restante: ' + timeleft + ' s <b>'
+    }
+}
+
+/**
+ * Configura la miniatura (cámara cenital)
+ */
 function setMiniatura()
 {
-    cenital = new THREE.OrthographicCamera(-L,L,L,-L,-10,300)
+    cenital = new THREE.OrthographicCamera(-ANCHO_CENITAL,ANCHO_CENITAL,ANCHO_CENITAL,-ANCHO_CENITAL,-10,300)
 
     cenital.position.set(0,20,0)
     cenital.lookAt(0,0,0)
     cenital.up = new THREE.Vector3(0,0,-1)
 
-    // const helper = new THREE.CameraHelper(cenital)
-    // scene.add(helper)
+    const helper = new THREE.CameraHelper(cenital)
+    auxPhysical.add(helper)
 }
 
+/**
+ * Configura los listeners del juego
+ * Incluye los botones HTML
+ */
 function setupListeners()
 {
+    // Doble click => Raycaster => Vaca bailar
     renderer.domElement.addEventListener('dblclick', (event) => animate(event) )
 
+    // Tecla pulsada
     document.addEventListener('keydown', (event) => 
     {
         moviendose = true
         keysPressed[event.key.toLowerCase()] = true
     })
 
+    // Tecla levantada
     document.addEventListener('keyup', (event) => 
     {
         moviendose = false
         keysPressed[event.key.toLowerCase()] = false
     })
 
+    // Pulsan en el botón Créditos
     document.getElementById('credits').addEventListener('click', () => 
     {
         let msg = `Autor: Mario Andreu Villar
@@ -935,6 +1061,7 @@ Licencias de modelos, texturas y otros:
         alert(msg)
     })
 
+    // Pulsan en el botón Cómo jugar
     document.getElementById('howToPlay').addEventListener('click', () => 
     {
         let msg = `  Cómo jugar - Instrucciones
@@ -956,6 +1083,7 @@ Finalmente, un truco: haz doble clic a la vaca para hacerla bailar. Pulsa cualqu
         alert(msg)
     })
 
+    // Pulsan en el botón Récords
     document.getElementById('records').addEventListener('click', () => 
     {
         let msg = ' Records - Top 3    (Se resetean al recargar la página)\n------------------------------------------------------\n'
@@ -967,10 +1095,13 @@ Finalmente, un truco: haz doble clic a la vaca para hacerla bailar. Pulsa cualqu
         alert(msg)
     })
 
+    // Pulsan en el botón Empezar partida
     document.getElementById('start').addEventListener('click', () => startGame() )
 
+    // Pulsan en el botón Volver a jugar
     document.getElementById('restart').addEventListener('click', () => startGame() )
     
+    // Pulsan en el botón Menú principal
     document.getElementById('returnToMenu').addEventListener('click', () =>
     {
         document.getElementById('pantallaFin').style.cssText += 'display: none;'
@@ -978,6 +1109,38 @@ Finalmente, un truco: haz doble clic a la vaca para hacerla bailar. Pulsa cualqu
     })
 }
 
+/**
+ * Realiza un trazado de rayos ante un doble click
+ * Si se seleccionó la vaca, ésta se pone a bailar
+ * @param {*} event El evento del doble click
+ */
+function animate(event)
+{
+    // Capturar y normalizar
+    let x = event.clientX
+    let y = event.clientY
+    x = ( x / window.innerWidth ) * 2 - 1
+    y = -( y / window.innerHeight ) * 2 + 1
+
+    // Construir el rayo y detectar la intersección
+    const rayo = new THREE.Raycaster()
+    rayo.setFromCamera(new THREE.Vector2(x,y), camera)
+    let intersecciones = rayo.intersectObjects(vaca3D.children, true)
+
+    // Si se pulsó la vaca, hacer que baile
+    if( intersecciones.length > 0 )
+    {
+        actionIdle.fadeOut(FADE_DURATION)
+        actionWalk.fadeOut(FADE_DURATION)
+        actionDance.reset().fadeIn(FADE_DURATION).play()
+    }
+}
+
+/**
+ * Calcula el offset del ángulo de movimiento diagonal
+ * @param {*} keysPressed Las teclas pulsadas en un diccionario: (clave:str) tecla -> (valor:bool) pulsada?
+ * @returns directionOffset
+ */
 function directionOffset(keysPressed) 
 {
     let directionOffset = 0
@@ -987,7 +1150,7 @@ function directionOffset(keysPressed)
         if      (keysPressed['arrowright']) directionOffset =   Math.PI / 4
         else if (keysPressed['arrowleft'] ) directionOffset = - Math.PI / 4
     } 
-    else if (keysPressed['arrowup'] || keysPressed[' ']) 
+    else if (keysPressed['arrowup'] || keysPressed[' ']) // ' ' es la barra espaciadora 
     {
         if      (keysPressed['arrowright']) directionOffset =  Math.PI / 4 + Math.PI / 2
         else if (keysPressed['arrowleft'] ) directionOffset = -Math.PI / 4 - Math.PI / 2
@@ -1005,6 +1168,14 @@ function directionOffset(keysPressed)
     return directionOffset
 }
 
+/**
+ * Carga y configura todos los modelos 
+ * 
+ * Importante: las callbacks se encadenan para simular un 
+ *   comportamiento síncrono en lugar de asíncrono y tener 
+ *   la certeza de llamar a allModelsLoaded() SOLO cuando 
+ *   realmente se han cargado todos.
+ */
 function loadModels()
 {
     // Textura de lava para las piedras
@@ -1012,9 +1183,11 @@ function loadModels()
     texlava.repeat.set(5,5)
     texlava.wrapS= texlava.wrapT = THREE.RepeatWrapping
 
-    // Modelos importados
+    // Modelos importados: encadenamiento de callbacks
     const glloader = new GLTFLoader()
-    glloader.load('models/cow.glb', (obj) =>
+
+    // VACA
+    glloader.load('models/cow.glb', (obj) =>  
     {
         vaca3D.add(obj.scene)
         obj.scene.scale.set(0.75,0.75,0.75)
@@ -1028,6 +1201,7 @@ function loadModels()
         actionWalk = mixer.clipAction(actions[2]) 
         actionIdle.play()
 
+        // ÁRBOL
         glloader.load('models/tree.glb', (obj) =>
         {
             arbol3D.add(obj.scene)
@@ -1036,31 +1210,36 @@ function loadModels()
             arbol3D.name = 'arbol'
             arbol3D.traverse( (ob) => {if (ob.isObject3D) ob.castShadow = true})
         
+            // PLANTAS
             glloader.load('models/plants.glb', (obj) =>
             {
                 planta3D.add(obj.scene)
-                obj.scene.children[0].children[0].children[0].children[2].children[0].material.color.set(0x234f1e) // Blanco => verde
+                obj.scene.children[0].children[0].children[0].children[2].children[0].material.color.set(0x234f1e) // De blanco => a verde
                 obj.scene.scale.set(0.09,0.09,0.09)
                 planta3D.traverse( (ob) => {if (ob.isObject3D) ob.castShadow = true})
 
+                // ANÉMONA
                 glloader.load('models/anemone.glb', (obj) =>
                 {
                     anemona3D.add(obj.scene)
                     obj.scene.scale.set(0.05,0.05,0.05)
                     anemona3D.traverse( (ob) => {if (ob.isObject3D) ob.castShadow = true})
                 
+                    // NARCISO
                     glloader.load('models/narcissus.glb', (obj) =>
                     {
                         narciso3D.add(obj.scene)
                         obj.scene.scale.set(0.05,0.05,0.05)
                         narciso3D.traverse( (ob) => {if (ob.isObject3D) ob.castShadow = true})
                     
+                        // TULIPÁN
                         glloader.load('models/tulip.glb', (obj) =>
                         {
                             tulipan3D.add(obj.scene)
                             obj.scene.scale.set(0.05,0.05,0.05)
                             tulipan3D.traverse( (ob) => {if (ob.isObject3D) ob.castShadow = true})
                         
+                            // FAROLA
                             glloader.load('models/lamp.glb', (obj) =>
                             {
                                 farola3D.add(obj.scene)
@@ -1068,6 +1247,7 @@ function loadModels()
                                 obj.scene.position.y -= ALTURA_FAROLA/2
                                 farola3D.traverse( (ob) => {if (ob.isObject3D) ob.castShadow = true})
                             
+                                // DULCE
                                 glloader.load('models/pancake.glb', (obj) =>
                                 {
                                     dulce3D.add(obj.scene)
@@ -1075,6 +1255,7 @@ function loadModels()
                                     obj.scene.position.y -= 0.25
                                     dulce3D.traverse( (ob) => {if (ob.isObject3D) ob.castShadow = true})
                                 
+                                    // PIEDRA
                                     glloader.load('models/stone.glb', (obj) =>
                                     {
                                         piedra3D.add(obj.scene)
@@ -1095,15 +1276,30 @@ function loadModels()
     })  
 }
 
+/**
+ * Guarda un nuevo récord (lo descarta si no supera al top 3)
+ * @param {number} points Puntos del récord a almacenar
+ */
 function addRecord(points)
 {
+    // Lista circular de 3 récords, se borra el peor
     let min = Math.min.apply(null, recordsPoints)
     let pos = recordsPoints.indexOf(min)
 
-    recordsPoints[pos] = points 
-    recordsDates[pos] = new Date().toLocaleString()
+    // Almacenamos récord y fecha
+    if (points > min)
+    {
+        recordsPoints[pos] = points 
+        recordsDates[pos] = new Date().toLocaleString()
+    }
 }
 
+/**
+ * Genera un número entero aleatorio inclusivo entre:
+ * @param {number} min El valor mínimo
+ * @param {number} max El valor máximo
+ * @returns Un entero aleatorio entre estos valores
+ */
 function getRandomIntInclusive(min, max) 
 {
     min = Math.ceil(min)
