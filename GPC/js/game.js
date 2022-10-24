@@ -393,7 +393,7 @@ function allModelsLoaded()
     // Farolas -> Eliminadas porque mermaban mucho el rendimiento
 
     // putFarola(MAX_SPACE*0.4,MAX_SPACE*0.4)
-    // putFarola(MAX_SPACE*0.4,-MAX_SPACE*0.4)
+    // putFarola(MAX_SPACE*0.4,-MAX_SPACE*0.4)        
     // putFarola(-MAX_SPACE*0.4,MAX_SPACE*0.4)
     // putFarola(-MAX_SPACE*0.4,-MAX_SPACE*0.4)
 
@@ -1032,8 +1032,17 @@ function setupListeners()
     // Tecla levantada
     document.addEventListener('keyup', (event) => 
     {
-        moviendose = false
         keysPressed[event.key.toLowerCase()] = false
+
+        moviendose = false
+        for (let key in keysPressed)
+        {
+            if (keysPressed[key]) // Si se sigue pulsando alguna...
+            {
+                moviendose = true
+                break 
+            }
+        }
     })
 
     // Pulsan en el botón Créditos
@@ -1070,7 +1079,7 @@ Licencias de modelos, texturas y otros:
 
 Puedes controlar a la vaca de dos formas distintas:
   - Opción A: Mantén pulsada la barra espaciadora para que la vaca se mueva hacia delante y utiliza el ratón para mover la cámara y dirigirla. 
-  - Opción B: Utiliza las flechas del teclado para desplazar a la vaca. También puedes utilizar el ratón para observar la escena. 
+  - Opción B: Utiliza las flechas del teclado (o WASD) para desplazar a la vaca. También puedes utilizar el ratón para observar la escena. 
 
 Dispones de ${MAX_TIME} segundos para recoger los dulces.
 
@@ -1145,22 +1154,22 @@ function directionOffset(keysPressed)
 {
     let directionOffset = 0
 
-    if (keysPressed['arrowdown']) 
+    if (keysPressed['arrowdown'] || keysPressed['s']) 
     {
-        if      (keysPressed['arrowright']) directionOffset =   Math.PI / 4
-        else if (keysPressed['arrowleft'] ) directionOffset = - Math.PI / 4
+        if      (keysPressed['arrowright'] || keysPressed['d']) directionOffset =   Math.PI / 4
+        else if (keysPressed['arrowleft']  || keysPressed['a']) directionOffset = - Math.PI / 4
     } 
-    else if (keysPressed['arrowup'] || keysPressed[' ']) // ' ' es la barra espaciadora 
+    else if (keysPressed['arrowup'] || keysPressed['w'] || keysPressed[' ']) // ' ' es la barra espaciadora 
     {
-        if      (keysPressed['arrowright']) directionOffset =  Math.PI / 4 + Math.PI / 2
-        else if (keysPressed['arrowleft'] ) directionOffset = -Math.PI / 4 - Math.PI / 2
+        if      (keysPressed['arrowright'] || keysPressed['d']) directionOffset =  Math.PI / 4 + Math.PI / 2
+        else if (keysPressed['arrowleft']  || keysPressed['a']) directionOffset = -Math.PI / 4 - Math.PI / 2
         else                                directionOffset =  Math.PI
     } 
-    else if (keysPressed['arrowright']) 
+    else if (keysPressed['arrowright'] || keysPressed['d']) 
     {
         directionOffset = Math.PI / 2
     } 
-    else if (keysPressed['arrowleft']) 
+    else if (keysPressed['arrowleft'] || keysPressed['a']) 
     {
         directionOffset = - Math.PI / 2
     }
@@ -1193,7 +1202,7 @@ function loadModels()
         obj.scene.scale.set(0.75,0.75,0.75)
         obj.scene.position.y = -SIZE_VACA_Y/2
         vaca3D.name = 'vaca'
-        obj.scene.traverse( (ob) => {if (ob.isObject3D) ob.castShadow = true})
+        obj.scene.traverse( (ob) => {if (ob.isObject3D) {ob.castShadow = true; ob.receiveShadow = false;}})
         actions = obj.animations  // 0 idle, 1 baile, 2 andar
         mixer = new THREE.AnimationMixer(vaca3D)
         actionIdle = mixer.clipAction(actions[0]) 
@@ -1208,7 +1217,7 @@ function loadModels()
             obj.scene.scale.set(0.005,0.005,0.005)
             obj.scene.position.y -= ALTURA_ARBOL/2
             arbol3D.name = 'arbol'
-            arbol3D.traverse( (ob) => {if (ob.isObject3D) ob.castShadow = true})
+            obj.scene.traverse( (ob) => {if (ob.isObject3D) {ob.castShadow = true; ob.receiveShadow = true;}})
         
             // PLANTAS
             glloader.load('models/plants.glb', (obj) =>
@@ -1216,28 +1225,28 @@ function loadModels()
                 planta3D.add(obj.scene)
                 obj.scene.children[0].children[0].children[0].children[2].children[0].material.color.set(0x234f1e) // De blanco => a verde
                 obj.scene.scale.set(0.09,0.09,0.09)
-                planta3D.traverse( (ob) => {if (ob.isObject3D) ob.castShadow = true})
+                obj.scene.traverse( (ob) => {if (ob.isObject3D) {ob.castShadow = true; ob.receiveShadow = true;}})
 
                 // ANÉMONA
                 glloader.load('models/anemone.glb', (obj) =>
                 {
                     anemona3D.add(obj.scene)
                     obj.scene.scale.set(0.05,0.05,0.05)
-                    anemona3D.traverse( (ob) => {if (ob.isObject3D) ob.castShadow = true})
+                    obj.scene.traverse( (ob) => {if (ob.isObject3D) {ob.castShadow = true; ob.receiveShadow = true;}})
                 
                     // NARCISO
                     glloader.load('models/narcissus.glb', (obj) =>
                     {
                         narciso3D.add(obj.scene)
                         obj.scene.scale.set(0.05,0.05,0.05)
-                        narciso3D.traverse( (ob) => {if (ob.isObject3D) ob.castShadow = true})
+                        obj.scene.traverse( (ob) => {if (ob.isObject3D) {ob.castShadow = true; ob.receiveShadow = true;}})
                     
                         // TULIPÁN
                         glloader.load('models/tulip.glb', (obj) =>
                         {
                             tulipan3D.add(obj.scene)
                             obj.scene.scale.set(0.05,0.05,0.05)
-                            tulipan3D.traverse( (ob) => {if (ob.isObject3D) ob.castShadow = true})
+                            obj.scene.traverse( (ob) => {if (ob.isObject3D) {ob.castShadow = true; ob.receiveShadow = true;}})
                         
                             // FAROLA
                             glloader.load('models/lamp.glb', (obj) =>
@@ -1245,7 +1254,7 @@ function loadModels()
                                 farola3D.add(obj.scene)
                                 obj.scene.scale.set(0.15,0.15,0.15)
                                 obj.scene.position.y -= ALTURA_FAROLA/2
-                                farola3D.traverse( (ob) => {if (ob.isObject3D) ob.castShadow = true})
+                                obj.scene.traverse( (ob) => {if (ob.isObject3D) {ob.castShadow = true; ob.receiveShadow = true;}})
                             
                                 // DULCE
                                 glloader.load('models/pancake.glb', (obj) =>
@@ -1253,7 +1262,7 @@ function loadModels()
                                     dulce3D.add(obj.scene)
                                     obj.scene.scale.set(0.01,0.01,0.01)
                                     obj.scene.position.y -= 0.25
-                                    dulce3D.traverse( (ob) => {if (ob.isObject3D) ob.castShadow = true})
+                                    obj.scene.traverse( (ob) => {if (ob.isObject3D) {ob.castShadow = true; ob.receiveShadow = true;}})
                                 
                                     // PIEDRA
                                     glloader.load('models/stone.glb', (obj) =>
@@ -1262,7 +1271,7 @@ function loadModels()
                                         obj.scene.scale.set(0.007,0.007,0.005)
                                         obj.scene.position.y -= RADIO_PIEDRA
                                         obj.scene.children[0].children[0].children[0].children[0].material.map = texlava
-                                        piedra3D.traverse( (ob) => {if (ob.isObject3D) ob.castShadow = true})
+                                        obj.scene.traverse( (ob) => {if (ob.isObject3D) {ob.castShadow = true; ob.receiveShadow = true;}})
                                     
                                         allModelsLoaded()
                                     })
