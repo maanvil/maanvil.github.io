@@ -38,6 +38,7 @@ const RADIO_PIEDRA = 0.4
 const ANCHO_CENITAL = 5
 const FADE_DURATION = 0.2
 const VELOCIDAD_VACA = 5
+const POSIBLE_TECLAS = ['arrowdown','arrowup','arrowright','arrowleft','w','a','s','d',' ']
 
 // Globales del grafo de escena
 let visual = new THREE.Object3D() // Parte visual 
@@ -131,7 +132,7 @@ function init()
     // Instanciar la camara perspectiva
     const ar = window.innerWidth / window.innerHeight
     camera = new THREE.PerspectiveCamera(75, ar, 0.1, 300)
-    camera.position.set(5,6,5)
+    camera.position.set(0,5,5)
     camera.lookAt(0,1,0)
 
     // Controles raton
@@ -139,8 +140,9 @@ function init()
     cameraControls.target.set(0,1,0)
 
     // Limitar el zoom
-    cameraControls.maxDistance = 0.25*MAX_SPACE
+    cameraControls.maxDistance = 0.10*MAX_SPACE
     cameraControls.minDistance = 0.05*MAX_SPACE
+    cameraControls.update()
 
     // Estadisticas rendimiento
     stats.showPanel(0)	// FPS inicialmente. Pulsar para cambiar panel.
@@ -330,7 +332,7 @@ function loadVisualWorld()
 
     materialAmarillo = new THREE.MeshLambertMaterial({wireframe: true, color:'yellow'})
     materialBlanco = new THREE.MeshLambertMaterial({wireframe: true, color:'white'})
-    const matSuelo = new THREE.MeshStandardMaterial({color:'white',map:texSuelo})
+    const matSuelo = new THREE.MeshStandardMaterial({color:'white',map:texSuelo,side:THREE.DoubleSide})
 
     // Suelo
     const suelo = new THREE.Mesh( new THREE.PlaneGeometry(MAX_SPACE, MAX_SPACE, 100, 100), matSuelo )
@@ -353,7 +355,7 @@ function loadVisualWorld()
                   map: new THREE.TextureLoader().load(path+'negz.jpg')}) )
     const habitacion = new THREE.Mesh(new THREE.BoxGeometry(MAX_SPACE, MAX_SPACE, MAX_SPACE), paredes)
     habitacion.position.y += OFFSET_Y
-    
+
     // Modelos (y escena)
     loadModels() // Cuando los carga todos llama a su vez a ===>>> allModelsLoaded()
 
@@ -840,6 +842,7 @@ function update()
         cameraTarget.z = vaca3D.position.z
         cameraControls.target = cameraTarget
 
+        cameraControls.update()
     }
 
     //-----------------------------------------
@@ -931,9 +934,10 @@ function startGame()
     finPartida = false
     updateHTMLstats()
 
-    // Pone a la vaca en modo Idle
+    // Pone a la vaca en modo Idle/Caminando
     actionDance.fadeOut(FADE_DURATION)
-    actionIdle.reset().fadeIn(FADE_DURATION).play()
+    if (moviendose) actionWalk.reset().fadeIn(FADE_DURATION).play()
+    else actionIdle.reset().fadeIn(FADE_DURATION).play()
 
     // Quita los menús HTML
     document.getElementById('menu').style.cssText += 'display: none;'
@@ -1025,22 +1029,30 @@ function setupListeners()
     // Tecla pulsada
     document.addEventListener('keydown', (event) => 
     {
-        moviendose = true
-        keysPressed[event.key.toLowerCase()] = true
+        let tecla = event.key.toLowerCase()
+        if (POSIBLE_TECLAS.indexOf(tecla) > -1) // Tecla válida
+        {
+            moviendose = true
+            keysPressed[tecla] = true
+        }
     })
 
     // Tecla levantada
     document.addEventListener('keyup', (event) => 
     {
-        keysPressed[event.key.toLowerCase()] = false
-
-        moviendose = false
-        for (let key in keysPressed)
+        let tecla = event.key.toLowerCase()
+        if (POSIBLE_TECLAS.indexOf(tecla) > -1) // Si es una tecla válida
         {
-            if (keysPressed[key]) // Si se sigue pulsando alguna...
+            keysPressed[tecla] = false
+
+            moviendose = false
+            for (let key in keysPressed)
             {
-                moviendose = true
-                break 
+                if (keysPressed[key]) // Si se sigue pulsando alguna...
+                {
+                    moviendose = true
+                    break 
+                }
             }
         }
     })
