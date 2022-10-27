@@ -1,15 +1,15 @@
 /**
-  robot-p5.js - Practica 5 - GPC
+  robot-p5.js - Práctica 5 - GPC
   Brazo articulado realizado con Three.js_r140
 
   Mario Andreu Villar
   @author maanvil@inf.upv.es
 */
 
-import * as THREE from "../lib/three.module.js"
-import {OrbitControls} from "../lib/OrbitControls.module.js"
-import {GUI} from "../lib/lil-gui.module.min.js"
-import {TWEEN} from "../lib/tween.module.min.js"
+import * as THREE from '../lib/three.module.js'
+import {OrbitControls} from '../lib/OrbitControls.module.js'
+import {GUI} from '../lib/lil-gui.module.min.js'
+import {TWEEN} from '../lib/tween.module.min.js'
 
 // Variables estandar
 let renderer, scene, camera
@@ -19,9 +19,11 @@ let cameraControls, keyboard
 let robotController
 let cenital
 let base, brazo, antebrazo, nervios, mano, pinzaDe, pinzaIz
-let material
+let matSuelo, matEsfera, matMetalBrillo, matMetalMate
 const L = 75
-const path ="./images/"
+const path ='./images/'
+let helpers = new THREE.Object3D()
+let paredes = []
 
 // Acciones
 init()
@@ -43,10 +45,10 @@ function init()
     // Instanciar la escena
     scene = new THREE.Scene()
 
-    // Instanciar la camara perspectiva
+    // Instanciar la cámara perspectiva
     const ar = window.innerWidth / window.innerHeight
     camera = new THREE.PerspectiveCamera(75, ar, 1, 3000)
-    camera.position.set(200,400,-200)
+    camera.position.set(-80,290,85)
     camera.lookAt(0,120,0)
 
     // Controles teclado
@@ -54,7 +56,7 @@ function init()
     renderer.domElement.setAttribute('tabIndex', '0')
     renderer.domElement.focus()
 
-    // Controles raton
+    // Controles ratón
     cameraControls = new OrbitControls(camera, renderer.domElement)
     cameraControls.target.set(0,120,0)
     
@@ -96,7 +98,7 @@ function updateAspectRatio()
     // Cambia las dimensiones del canvas
     renderer.setSize(window.innerWidth, window.innerHeight)
 
-    // Nuevo relacion aspecto de la camara
+    // Nuevo relación aspecto de la cámara
     const ar = window.innerWidth / window.innerHeight
 
     // Camara perspectiva
@@ -106,82 +108,83 @@ function updateAspectRatio()
 
 function loadScene()
 {
-    // Luces
+    // Luces: ambiental
     const ambiental = new THREE.AmbientLight(0x222222)
     scene.add(ambiental)
 
+    // Luces: direccional
     const direccional = new THREE.DirectionalLight(0xFFFFFF,0.75)
-    direccional.position.set(500,500,500)
-    direccional.shadow.camera.left = -500;
-    direccional.shadow.camera.right = 500;
-    direccional.shadow.camera.top = 500;
-    direccional.shadow.camera.bottom = -500;
-    direccional.shadow.camera.far = 1500;
+    direccional.position.set(0,220,300)
+    direccional.shadow.camera.left = -500
+    direccional.shadow.camera.right = 500
+    direccional.shadow.camera.top = 500
+    direccional.shadow.camera.bottom = -500
+    direccional.shadow.camera.far = 1500
     direccional.castShadow = true
     scene.add(direccional)
-    // scene.add(new THREE.CameraHelper(direccional.shadow.camera))
+    helpers.add(new THREE.CameraHelper(direccional.shadow.camera))
 
-    // const puntual = new THREE.PointLight('white',0.25);
-    // puntual.position.set(0,20,20)
-    // puntual.castShadow = true
-    // scene.add(puntual)
-    // scene.add( new THREE.PointLightHelper( puntual, 5, 'yellow' ) )
-
-    const focal = new THREE.SpotLight('white',0.75);
-    focal.position.set(-500,200,500);
-    focal.target.position.set(0,0,0);
+    // Luces: focal
+    const focal = new THREE.SpotLight('white',0.75)
+    focal.position.set(-100,300,-100)
+    focal.target.position.set(0,0,0)
     focal.angle= Math.PI/6
-    focal.penumbra = 0.3;
-    focal.castShadow= true;
-    focal.shadow.camera.far = 1500;
-    focal.shadow.camera.fov = 60;
-    scene.add(focal);
-    // scene.add(new THREE.CameraHelper(focal.shadow.camera));
+    focal.penumbra = 0.3
+    focal.shadow.bias = -0.0001    // reducir "shadow artifacts"
+    focal.castShadow = true
+    focal.shadow.camera.far = 1500
+    focal.shadow.camera.fov = 60
+    scene.add(focal)
+    helpers.add(new THREE.CameraHelper(focal.shadow.camera))
+
+    // Luces: puntual
+    const puntual = new THREE.PointLight('white',0.25)
+    puntual.position.set(-30,50,30)
+    puntual.castShadow = true
+    scene.add(puntual)
+    helpers.add( new THREE.PointLightHelper( puntual, 5, 'yellow' ) )
 
     //--------------------------------------------
 
-    const texSuelo = new THREE.TextureLoader().load(path+"pisometalico_1024.jpg");
-    texSuelo.repeat.set(9,9);
-    texSuelo.wrapS= texSuelo.wrapT = THREE.RepeatWrapping;
-    const matsuelo = new THREE.MeshStandardMaterial({color:'white',map:texSuelo});
+    // Texturas y materiales
+    const texSuelo = new THREE.TextureLoader().load(path + 'pisometalico_1024.jpg')
+    texSuelo.repeat.set(9,9)
+    texSuelo.wrapS= texSuelo.wrapT = THREE.RepeatWrapping
 
-    const entorno = [ path+"posx.jpg", path+"negx.jpg",
-                      path+"posy.jpg", path+"negy.jpg",
-                      path+"posz.jpg", path+"negz.jpg"];
+    const entorno = [ path + 'posx.jpg', path + 'negx.jpg',
+                      path + 'posy.jpg', path + 'negy.jpg',
+                      path + 'posz.jpg', path + 'negz.jpg']
 
     const texRotula = new THREE.CubeTextureLoader().load(entorno)
+    const texMetal = new THREE.TextureLoader().load(path + 'metal_128.jpg')
 
-    const texMetal = new THREE.TextureLoader().load(path+"metal_128.jpg")
-
-    const matMetalMate = new THREE.MeshLambertMaterial({color:'gray',map:texMetal});
-    const matMetalBrillo = new THREE.MeshPhongMaterial({color:'gold',map:texMetal,shininess:300});
-    const matEsfera = new THREE.MeshPhongMaterial({
-        color:'white', specular:'gray', shininess: 30, envMap: texRotula });
+    matSuelo = new THREE.MeshStandardMaterial({color:'white',map:texSuelo})
+    matMetalMate = new THREE.MeshLambertMaterial({color:'gray',map:texMetal})
+    matMetalBrillo = new THREE.MeshPhongMaterial({color:'gold',map:texMetal,shininess:300})
+    matEsfera = new THREE.MeshPhongMaterial({
+        color:'white', specular:'gray', shininess: 30, envMap: texRotula })
     
-    // Habitacion
-    const paredes = [];
+    // Habitación
     paredes.push( new THREE.MeshBasicMaterial({side:THREE.BackSide,
-                  map: new THREE.TextureLoader().load(path+"posx.jpg")}) );
+                  map: new THREE.TextureLoader().load(path + 'posx.jpg')}) )
     paredes.push( new THREE.MeshBasicMaterial({side:THREE.BackSide,
-                  map: new THREE.TextureLoader().load(path+"negx.jpg")}) );
+                  map: new THREE.TextureLoader().load(path + 'negx.jpg')}) )
     paredes.push( new THREE.MeshBasicMaterial({side:THREE.BackSide,
-                  map: new THREE.TextureLoader().load(path+"posy.jpg")}) );
+                  map: new THREE.TextureLoader().load(path + 'posy.jpg')}) )
     paredes.push( new THREE.MeshBasicMaterial({side:THREE.BackSide,
-                  map: new THREE.TextureLoader().load(path+"negy.jpg")}) );
+                  map: new THREE.TextureLoader().load(path + 'negy.jpg')}) )
     paredes.push( new THREE.MeshBasicMaterial({side:THREE.BackSide,
-                  map: new THREE.TextureLoader().load(path+"posz.jpg")}) );
+                  map: new THREE.TextureLoader().load(path + 'posz.jpg')}) )
     paredes.push( new THREE.MeshBasicMaterial({side:THREE.BackSide,
-                  map: new THREE.TextureLoader().load(path+"negz.jpg")}) );
-    const habitacion = new THREE.Mesh( new THREE.BoxGeometry(1000,1000,1000),paredes);
-    scene.add(habitacion);
+                  map: new THREE.TextureLoader().load(path + 'negz.jpg')}) )
+    const habitacion = new THREE.Mesh( new THREE.BoxGeometry(1000,1000,1000), paredes)
+    habitacion.receiveShadow = true
+    scene.add(habitacion)
 
     //--------------------------------------------
 
-    // Material a utilizar
-    material = new THREE.MeshNormalMaterial({wireframe: false, flatShading: true})
-
     // Suelo de 1000*1000 en el plano XZ
-    const suelo = new THREE.Mesh(new THREE.PlaneGeometry(1000,1000,10,10), matsuelo)
+    const suelo = new THREE.Mesh(new THREE.PlaneGeometry(1000,1000,10,10), matSuelo)
     suelo.rotation.x = -Math.PI/2
 
     // Base del robot
@@ -224,7 +227,7 @@ function loadScene()
     mano = new THREE.Object3D()
 
     const cilindro = new THREE.Mesh(new THREE.CylinderGeometry(15,15,40,50), matMetalBrillo)
-    cilindro.rotation.x = -Math.PI/2
+    cilindro.rotation.x = Math.PI/2
 
     pinzaDe = new THREE.Object3D()
     pinzaIz = new THREE.Object3D()
@@ -346,15 +349,13 @@ function loadScene()
     mallaDedo.setAttribute('normal', new THREE.Float32BufferAttribute(normales,3))
     mallaDedo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs,2))
     
-
     const dedoDe = new THREE.Mesh(mallaDedo, matMetalBrillo)
-
     const dedoIz = new THREE.Mesh(mallaDedo, matMetalBrillo)
     dedoIz.rotation.x += Math.PI
     dedoIz.position.y += 20
     dedoIz.position.z += 4
 
-    // Colocamos a continuacion del paralelepipedo
+    // Colocamos a continuación del paralelepipedo
     dedoDe.position.x += 19
     dedoIz.position.x += 19
     
@@ -411,10 +412,16 @@ function loadScene()
     pinzaIz.add(baseIz)
     pinzaIz.add(dedoIz)
 
-    direccional.target = rotula
+    // Target luces
+    direccional.target = esparrago
+    focal.target = mano
 
     // Ejes
-    // scene.add(new THREE.AxesHelper(100))
+    helpers.add(new THREE.AxesHelper(100))
+
+    // Helpers
+    scene.add(helpers)
+    helpers.visible = false  // se puede cambiar desde el menú
 
     //--------------------------------------------
 
@@ -432,7 +439,7 @@ function loadScene()
 
 function setupGui()
 {
-	// Definicion de los controles
+	// Definición de los controles
 	robotController = {
         giroBase : 0,
         giroBrazo : 0,
@@ -441,6 +448,7 @@ function setupGui()
         giroPinza : 0,
 		separacionPinza : 10,
 		alambres : false, 
+		helpers : false, 
         anima : () => {
             new TWEEN.Tween( robotController )
             .to( 
@@ -466,10 +474,10 @@ function setupGui()
         }
 	}
 
-	// Creacion interfaz
+	// Creación interfaz
 	const gui = new GUI()
 
-	// Construccion del menu
+	// Construcción del menú
 	const h = gui.addFolder('Control Robot')
 	h.add(robotController, 'giroBase', -180.0, 180.0, 0.025).name('Giro Base').listen()
 	h.add(robotController, 'giroBrazo', -45.0, 45.0, 0.025).name('Giro Brazo').listen()
@@ -477,19 +485,31 @@ function setupGui()
 	h.add(robotController, 'giroAntebrazoZ', -90.0, 90.0, 0.025).name('Giro Antebrazo Z').listen()
 	h.add(robotController, 'giroPinza', -40.0, 220.0, 0.025).name('Giro Pinza').listen()
 	h.add(robotController, 'separacionPinza', 0.0, 15.0, 0.025).name('Separacion Pinza').listen()
-	h.add(robotController, 'alambres' ).name('Alambres').onChange(
-        (checkbox) => material.setValues({wireframe : checkbox})   
+	h.add(robotController, 'alambres' ).name('Alambres').onChange( (checkbox) => 
+    {
+        matEsfera.setValues({wireframe : checkbox})
+        matSuelo.setValues({wireframe : checkbox})
+        matMetalBrillo.setValues({wireframe : checkbox})
+        matMetalMate.setValues({wireframe : checkbox})
+        paredes.forEach( (material) => material.setValues({wireframe : checkbox}) )
+    })
+    h.add(robotController, 'helpers' ).name('Mostrar helpers luz').onChange(
+        (checkbox) => helpers.visible = checkbox   
     )
     h.add(robotController, 'anima').name('Animacion')
 }
 
 function update()
 {
-    // Cambios para actualizar la camara segun movimiento del raton
+    // Cambios para actualizar la cámara según movimiento del ratón
     cameraControls.update()
 
-    // Actualiza la interpolacion
+    // Actualiza la interpolación
     TWEEN.update()
+
+    // Actualiza la posición de la cenital (sigue al robot)
+    cenital.position.x = base.position.x
+    cenital.position.z = base.position.z
 
     // Actualiza las posiciones del robot
     base.rotation.y = robotController.giroBase * Math.PI/180
@@ -509,7 +529,7 @@ function render()
     renderer.clear()
 
     /* La miniatura cenital esta superpuesta a la vista 
-    general en el angulo superior izquierdo, cuadrada, 
+    general en el ángulo superior izquierdo, cuadrada, 
     de 1/4 de la dimensión menor de la vista general */
     let ladoMiniatura
     if (window.innerWidth < window.innerHeight)
